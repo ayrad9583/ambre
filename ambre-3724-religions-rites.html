@@ -1,0 +1,1260 @@
+<title>Ambre 3724</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Display:wght@600;800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout : jeu plein écran ; HUD en coins, panneaux « carnet de terrain » par-dessus le monde 3D */
+:root{
+  --charbon:#15120e; --pierre:#241f19; --pierre-2:#2f2820; --trait:#4a3f32;
+  --papier:#ede3cf; --papier-2:#b9ab92; --ambre:#f0a63a; --ambre-sombre:#a8661a;
+  --mousse:#86ad5f; --rouille:#d0603a;
+  --f-display:"Big Shoulders Stencil Display","Impact",sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,monospace;
+  --gx:max(16px,env(safe-area-inset-left,0px)); --gy:max(14px,env(safe-area-inset-top,0px));
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--charbon);color:var(--papier);font-family:var(--f-body);font-size:15px;line-height:1.45}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--ambre);outline-offset:2px}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.hud{position:fixed;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.8);z-index:2}
+#obj{top:var(--gy);left:var(--gx);max-width:min(360px,calc(100vw - 32px));background:rgba(21,18,14,.72);border-left:3px solid var(--ambre);padding:8px 12px}
+#obj .lab{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ambre)}
+#obj p{margin:2px 0 0;font-size:.95rem}
+#stats{top:var(--gy);right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:6px;justify-items:end;font-variant-numeric:tabular-nums}
+#clock{font-family:var(--f-display);font-weight:600;font-size:1.5rem;line-height:1;letter-spacing:.04em}
+.meter{display:flex;align-items:center;gap:8px;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--papier-2)}
+.meter .bar{width:110px;height:8px;background:rgba(0,0,0,.5);border:1px solid var(--trait)}
+.meter i{display:block;height:100%;transition:width .3s}
+#faimBar{background:var(--ambre)} #santeBar{background:var(--rouille)}
+#status{font-size:.75rem;color:var(--rouille);min-height:1em}
+#compass{top:var(--gy);left:50%;transform:translateX(-50%);width:min(340px,40vw);height:30px;overflow:hidden;border-bottom:1px solid rgba(237,227,207,.35);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 20%,#000 80%,transparent);mask-image:linear-gradient(90deg,transparent,#000 20%,#000 80%,transparent)}
+#compass span{position:absolute;top:4px;transform:translateX(-50%);font-size:.75rem;white-space:nowrap;font-weight:700}
+#compass span.card{font-family:var(--f-display);font-size:1rem;color:var(--papier)}
+#compass span.lm{color:var(--ambre);font-size:.68rem;top:13px;font-weight:400}
+@media (max-width:640px){#compass{display:none}}
+#cross{left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--papier);box-shadow:0 0 0 2px rgba(0,0,0,.5)}
+#prompt{left:50%;top:calc(50% + 22px);transform:translateX(-50%);text-align:center;font-size:.9rem;white-space:nowrap}
+#prompt b{color:var(--ambre);font-family:var(--f-mono);font-size:.8rem;border:1px solid var(--ambre-sombre);padding:0 5px;margin-right:6px}
+#prompt small{display:block;color:var(--papier-2);font-size:.75rem}
+#prompt .hpbar{width:120px;height:4px;margin:4px auto 0;background:rgba(0,0,0,.5)} #prompt .hpbar i{display:block;height:100%;background:var(--ambre)}
+#toasts{right:max(16px,env(safe-area-inset-right,0px));top:42%;display:grid;gap:4px;justify-items:end}
+.toast{background:rgba(21,18,14,.8);padding:4px 10px;font-size:.88rem;border-right:3px solid var(--mousse);animation:tin .25s ease;max-width:min(420px,80vw);white-space:normal;text-align:right}
+.toast.warn{border-color:var(--rouille)} .toast.gold{border-color:var(--ambre);color:var(--ambre)}
+@keyframes tin{from{transform:translateX(12px);opacity:0}}
+#bar{bottom:max(14px,env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 32px)}
+.slot{background:rgba(21,18,14,.75);border:1px solid var(--trait);padding:4px 9px;font-size:.78rem;color:var(--papier-2)}
+.slot.on{border-color:var(--ambre);color:var(--papier)}
+.slot b{color:var(--ambre);font-family:var(--f-mono);font-size:.72rem;margin-right:4px}
+#sci{left:var(--gx);bottom:max(60px,calc(env(safe-area-inset-bottom,0px) + 60px));max-width:min(400px,calc(100vw - 32px));background:rgba(21,18,14,.9);border:1px solid var(--trait);border-left:3px solid var(--mousse);padding:10px 14px;display:grid;gap:3px;animation:tin .3s ease}
+#sci.talk{border-left-color:var(--ambre)} #sci.talk .lab{color:var(--ambre)}
+#sci .lab{font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mousse)}
+#sci h4{margin:0;font-family:var(--f-display);font-size:1.25rem;font-weight:600;letter-spacing:.03em}
+#sci p{margin:0;font-size:.86rem;color:var(--papier-2)}
+#sci code{font-family:var(--f-mono);font-size:.8rem;color:var(--ambre)}
+#night{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(5,6,14,.55));opacity:0;transition:opacity 2s;z-index:1}
+#hurt{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 40%,rgba(160,20,10,.6));opacity:0;transition:opacity .4s;z-index:1}
+/* Panneaux */
+.overlay{position:fixed;inset:0;z-index:10;background:rgba(10,8,6,.78);display:grid;place-items:center;padding:var(--gy) var(--gx)}
+.sheet{width:min(1000px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--pierre);border:1px solid var(--trait);padding:20px;display:grid;gap:16px}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.sheet-head .btns{display:flex;gap:8px;flex-wrap:wrap}
+.sheet h2{margin:0;font-family:var(--f-display);font-weight:800;font-size:2rem;letter-spacing:.03em;color:var(--ambre);line-height:1}
+.close{background:var(--ambre);color:var(--charbon);border:0;padding:8px 14px;font-weight:700}
+.tab{background:none;border:1px solid var(--trait);padding:8px 12px;color:var(--papier-2)}
+.cols{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:18px}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.h3{font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--papier-2);margin:0 0 8px}
+.inv{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;font-variant-numeric:tabular-nums}
+.it{background:var(--pierre-2);padding:6px 8px;display:grid}
+.it .n{font-family:var(--f-display);font-size:1.4rem;font-weight:600;line-height:1}
+.it .k{font-size:.72rem;color:var(--papier-2)}
+.it.tool{border:1px solid var(--mousse)} .it.tool .n{font-size:1rem;color:var(--mousse)}
+.group{display:grid;gap:6px;margin-bottom:12px}
+.ghead{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;font-weight:700;border-bottom:1px solid var(--trait);padding-bottom:4px}
+.ghead .near{color:var(--mousse);font-weight:400}.ghead .far{color:var(--rouille);font-weight:400}
+.rec{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;background:var(--pierre-2);padding:8px 10px}
+.rec .t{font-weight:700;font-size:.9rem}
+.rec .c{font-family:var(--f-mono);font-size:.7rem;color:var(--papier-2)}
+.ok{color:var(--mousse)} .no{color:var(--rouille)}
+.rec button,.bcard button{grid-row:1/3;grid-column:2;background:var(--ambre);color:var(--charbon);border:0;padding:7px 12px;font-weight:700;font-size:.82rem}
+.rec button:disabled,.bcard button:disabled{background:var(--trait);color:var(--papier-2);cursor:not-allowed}
+.rec .done{grid-row:1/3;grid-column:2;color:var(--mousse);font-size:.78rem}
+.bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.bcard{background:var(--pierre-2);border:1px solid var(--trait);padding:12px;display:grid;gap:6px;align-content:start}
+.bcard .t{font-family:var(--f-display);font-size:1.3rem;font-weight:600;letter-spacing:.03em}
+.bcard p{margin:0;font-size:.82rem;color:var(--papier-2)}
+.bcard button{grid-row:auto;grid-column:auto}
+.bcard.locked{opacity:.45}
+.defi{display:grid;grid-template-columns:1fr auto;gap:2px 10px;background:var(--pierre-2);padding:8px 10px;margin-bottom:6px}
+.defi .t{font-weight:700} .defi .d{font-size:.78rem;color:var(--papier-2)} .defi .v{grid-row:1/3;grid-column:2;font-family:var(--f-mono);font-size:.8rem;align-self:center}
+.defi .pb{grid-column:1/3;height:4px;background:var(--charbon)} .defi .pb i{display:block;height:100%;background:var(--ambre)}
+.defi.won{border-left:3px solid var(--mousse)} .defi.won .v{color:var(--mousse)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.chip{border:1px solid var(--trait);padding:3px 8px;font-size:.78rem;color:var(--papier-2)} .chip.on{border-color:var(--mousse);color:var(--papier)}
+.people{display:grid;gap:6px;margin-bottom:14px}
+.person{background:var(--pierre-2);padding:6px 10px;font-size:.85rem} .person b{color:var(--ambre)}
+#mapC{width:min(78vh,100%);aspect-ratio:1;max-width:100%;display:block;margin:0 auto;background:var(--charbon);border:1px solid var(--trait)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;font-size:.78rem;color:var(--papier-2)}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px}
+/* Intro */
+#intro{position:fixed;inset:0;z-index:20;background:#1a0e03}
+#amber{position:absolute;inset:0;transition:transform .9s ease,opacity .9s ease}
+#amber.shatter{transform:scale(1.25);opacity:0}
+#amberTxt{position:absolute;left:0;right:0;bottom:12%;text-align:center;padding:0 var(--gx);color:#3a1d02;text-shadow:0 1px 0 rgba(255,220,150,.5)}
+#amberTxt h1{font-family:var(--f-display);font-weight:800;font-size:clamp(2.4rem,8vw,4.6rem);margin:0;line-height:.9;letter-spacing:.03em}
+#amberTxt p{margin:10px auto 0;max-width:46ch;font-weight:700}
+#amberTxt kbd{font-family:var(--f-mono);border:1px solid #3a1d02;padding:1px 6px;font-size:.85rem}
+.story{position:absolute;inset:0;display:grid;place-items:center;padding:var(--gy) var(--gx)}
+.story .card{max-width:600px;display:grid;gap:14px;animation:tin .6s ease}
+.story .eyebrow{font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ambre)}
+.story h2{font-family:var(--f-display);font-weight:800;font-size:clamp(2.2rem,6vw,3.4rem);margin:0;line-height:.95;color:var(--papier)}
+.story p{margin:0;color:var(--papier-2);max-width:60ch}
+.story p b{color:var(--papier)}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.big{background:var(--ambre);color:var(--charbon);border:0;padding:12px 22px;font-weight:700;font-size:1rem}
+.ghost{background:none;border:1px solid var(--trait);padding:12px 18px;color:var(--papier-2)}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:.85rem;color:var(--papier-2)}
+.keys b{font-family:var(--f-mono);color:var(--ambre);font-weight:500;font-size:.78rem}
+/* Tactile */
+.touch{position:fixed;z-index:3;display:none}
+body.is-touch .touch{display:flex}
+#tbtns{right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));flex-direction:column;gap:8px;align-items:flex-end}
+#tbtns button{background:rgba(21,18,14,.7);border:1px solid var(--ambre-sombre);padding:12px 16px;font-weight:700;min-width:96px}
+#tbtns .act{background:var(--ambre);color:var(--charbon);padding:18px 22px}
+#tmenu{left:max(16px,env(safe-area-inset-left,0px));top:calc(var(--gy) + 80px);flex-direction:column;gap:6px}
+#tmenu button{background:rgba(21,18,14,.7);border:1px solid var(--trait);padding:8px 12px;font-size:.82rem}
+#joy{left:max(30px,env(safe-area-inset-left,0px));bottom:max(30px,env(safe-area-inset-bottom,0px));width:120px;height:120px;border-radius:50%;border:2px solid rgba(237,227,207,.3);pointer-events:none}
+#joy i{position:absolute;left:40px;top:40px;width:40px;height:40px;border-radius:50%;background:rgba(240,166,58,.6)}
+body.is-touch #bar{bottom:auto;top:calc(var(--gy) + 70px)}
+@media (prefers-reduced-motion:reduce){.toast,#sci,.story .card{animation:none}#amber{transition:none}}
+</style>
+
+<canvas id="c"></canvas>
+<div id="night"></div><div id="hurt"></div>
+<div class="hud" id="obj"><div class="lab" id="objLab">Objectif</div><p id="objTxt"></p></div>
+<div class="hud" id="compass"></div>
+<div class="hud" id="stats">
+  <div id="clock">Jour 1 · 07 h</div>
+  <div class="meter">Faim<div class="bar"><i id="faimBar"></i></div></div>
+  <div class="meter">Santé<div class="bar"><i id="santeBar"></i></div></div>
+  <div id="status"></div>
+</div>
+<div class="hud" id="cross"></div>
+<div class="hud" id="prompt"></div>
+<div class="hud" id="toasts"></div>
+<div class="hud" id="bar"></div>
+<div class="hud" id="sci" hidden></div>
+
+<div class="touch" id="joy"><i id="joyKnob"></i></div>
+<div class="touch" id="tmenu"><button id="tSac">Sac</button><button id="tBuild">Bâtir</button><button id="tMap">Carte</button><button id="tCarnet">Carnet</button><button id="tReligion">Croyances</button><button id="tEat">Manger</button><button id="tTorch">Torche</button></div>
+<div class="touch" id="tbtns"><button id="tRot" hidden>Tourner</button><button id="tCancel" hidden>Annuler</button><button id="tJump">Sauter</button><button class="act" id="tAct">Action</button></div>
+
+<div class="overlay" id="sac" hidden>
+  <div class="sheet">
+    <div class="sheet-head"><h2>Sac et fabrication</h2><div class="btns"><button class="tab" data-go="carnet">Carnet [J]</button><button class="tab" data-go="carte">Carte [M]</button><button class="close" data-close>Fermer</button></div></div>
+    <div class="cols">
+      <div><p class="h3">Inventaire</p><div class="inv" id="invList"></div></div>
+      <div><p class="h3">Recettes · approche-toi du bon bâtiment</p><div id="recList"></div></div>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="build" hidden>
+  <div class="sheet">
+    <div class="sheet-head"><h2>Construire</h2><button class="close" data-close>Fermer</button></div>
+    <p class="h3">Choisis un bâtiment, place-le en regardant au sol · R pour tourner · E ou clic pour poser · X pour annuler</p>
+    <div class="bgrid" id="bList"></div>
+  </div>
+</div>
+<div class="overlay" id="carte" hidden>
+  <div class="sheet">
+    <div class="sheet-head"><h2>Carte</h2><div class="btns"><button class="tab" data-go="sac">Sac [Tab]</button><button class="tab" data-go="carnet">Carnet [J]</button><button class="close" data-close>Fermer</button></div></div>
+    <canvas id="mapC" width="600" height="600"></canvas>
+    <div class="legend"><span><i style="background:var(--papier)"></i>Toi</span><span><i style="background:var(--ambre)"></i>Tes constructions</span><span><i style="background:var(--mousse)"></i>Personnes réveillées</span><span id="mapPct"></span></div>
+  </div>
+</div>
+<div class="overlay" id="carnet" hidden>
+  <div class="sheet">
+    <div class="sheet-head"><h2>Carnet de terrain</h2><div class="btns"><button class="tab" data-go="sac">Sac [Tab]</button><button class="tab" data-go="carte">Carte [M]</button><button class="close" data-close>Fermer</button></div></div>
+    <div class="cols">
+      <div><p class="h3">Défis</p><div id="defiList"></div></div>
+      <div>
+        <p class="h3">Personnes réveillées</p><div class="people" id="peopleList"></div>
+        <p class="h3">Vestiges du monde d'avant</p><div class="chips" id="vestList"></div>
+        <p class="h3">Sciences découvertes</p><div class="chips" id="sciList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="religion" hidden>
+  <div class="sheet">
+    <div class="sheet-head"><h2>Croyances, rites et traditions</h2><div class="btns"><button class="tab" data-go="carnet">Carnet [J]</button><button class="close" data-close>Fermer</button></div></div>
+    <p style="color:var(--papier-2)">Les survivants peuvent donner un sens au monde retrouvé. Choisis une tradition fictive ou une voie laïque ; les rites sont facultatifs et leurs effets sont des mécaniques de jeu.</p>
+    <div id="faithContent"></div>
+  </div>
+</div>
+<div class="overlay" id="pause" hidden>
+  <div class="sheet" style="max-width:600px">
+    <h2>Pause</h2>
+    <div class="keys">
+      <b>ZQSD / WASD</b><span>Marcher</span><b>Souris</b><span>Regarder</span><b>Maj</b><span>Courir</span><b>Espace</b><span>Sauter</span>
+      <b>E / clic</b><span>Récolter, frapper, parler, interagir</span><b>Tab</b><span>Sac et fabrication</span><b>B</b><span>Construire</span>
+      <b>M</b><span>Carte</span><b>J</b><span>Carnet : défis, vestiges, sciences</span><b>Y</b><span>Croyances et rites facultatifs</span>
+      <b>F</b><span>Manger le meilleur aliment du sac</span><b>T</b><span>Allumer la torche (éloigne les loups)</span>
+    </div>
+    <div class="btns"><button class="big" id="resume">Reprendre</button><button class="ghost" id="newGame">Nouvelle partie</button></div>
+    <p id="confirmNew" hidden style="margin:0;color:var(--papier-2)">Ta partie sera effacée. <button class="ghost" id="confirmYes" style="padding:4px 10px">Oui, recommencer</button></p>
+  </div>
+</div>
+<div class="overlay" id="endScreen" hidden>
+  <div class="story" style="position:static"><div class="card">
+    <div class="eyebrow">Épilogue</div><h2>Un signal</h2>
+    <p>Tu tournes la manivelle de la dynamo. L'antenne bourdonne au sommet de la tour. D'abord du grésillement, puis, très faible, une voix qui répète des chiffres. Quelqu'un d'autre s'est libéré de l'ambre, quelque part de l'autre côté du fleuve.</p>
+    <p id="endPeople">Tu as rebâti ce que l'humanité avait mis dix mille ans à inventer. Le monde peut recommencer.</p>
+    <div class="btns"><button class="big" id="endContinue">Continuer à explorer</button></div>
+  </div></div>
+</div>
+
+<div id="intro">
+  <div id="amber"><canvas id="crackC" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+    <div id="amberTxt"><h1>Ambre 3724</h1><p>Tu es prisonnier d'une gangue d'ambre. Appuie sur <kbd>Espace</kbd> ou touche l'écran, encore et encore, pour la briser.</p></div>
+  </div>
+  <div class="story" id="prologue" hidden><div class="card">
+    <div class="eyebrow">Prologue</div><h2>3 724 ans plus tard</h2>
+    <p>Ton dernier souvenir : une lueur dorée dans le ciel de Montréal. Puis plus rien.</p>
+    <p>Tu t'extrais de la résine, dans une clairière d'épinettes. Autour de toi, d'autres silhouettes restent figées. Une stalactite a poussé de 37 cm sur l'une d'elles : à un centimètre par siècle, <b>3 724 ans</b> ont passé.</p>
+    <p>Plus de villes, plus d'outils, presque plus de ruines. Il ne te reste que tes mains et ce que tu sais de la science. Et peut-être un moyen de réveiller les autres.</p>
+    <div class="btns"><button class="big" id="start">Se lever</button></div>
+  </div></div>
+  <div class="story" id="menu" hidden><div class="card">
+    <div class="eyebrow">Partie sauvegardée</div><h2>Ambre 3724</h2>
+    <p id="menuInfo"></p>
+    <div class="btns"><button class="big" id="cont">Continuer</button><button class="ghost" id="restart">Nouvelle partie</button></div>
+  </div></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const isTouch=matchMedia("(pointer:coarse)").matches;
+if(isTouch) document.body.classList.add("is-touch");
+const KEY="ambre3724-3d";
+
+/* ================= Données ================= */
+const ITEMS={baton:"Branches",caillou:"Cailloux",fibre:"Fibres",graines:"Graines",baies:"Bleuets",champignon:"Chanterelles",bois:"Bois",pierre:"Pierre",argile:"Argile",sable:"Sable",coquille:"Coquillages",
+  poisson:"Poisson cru",poisson_cuit:"Poisson grillé",viande:"Viande crue",viande_cuite:"Viande grillée",peau:"Peaux",ble:"Blé",pain:"Pain",
+  minerai_fer:"Magnétite",minerai_cuivre:"Malachite",ferraille:"Ferraille",salpetre:"Salpêtre",charbon:"Charbon de bois",chaux:"Chaux",fer:"Fer",cuivre:"Cuivre",verre:"Verre",fil:"Fil de cuivre",
+  vin:"Vin de bleuets",alcool:"Alcool",acide:"Acide nitrique",fluide:"Fluide de réveil",dynamo:"Dynamo"};
+const TOOLS={hache:"Hache de pierre",pioche:"Pioche de pierre",lance:"Lance",canne:"Canne à pêche",torche:"Torche",creuset:"Creuset",manteau:"Manteau de fourrure",hache_fer:"Hache de fer",pioche_fer:"Pioche de fer"};
+const TOOLNEED={hache:"Hache requise",pioche:"Pioche requise",canne:"Canne à pêche requise"};
+const FOOD={viande_cuite:35,pain:30,poisson_cuit:28,baies:12,champignon:8};
+
+const KINDS={
+  arbre:{nom:"Épinette",verbe:"Couper",outil:"hache",hp:4,gain:{bois:[2,3],baton:[0,1]},respawn:900,col:0x7a5030},
+  branche:{nom:"Branche morte",verbe:"Ramasser",gain:{baton:[1,1]},respawn:240,col:0x8a5a33},
+  caillou:{nom:"Caillou",verbe:"Ramasser",gain:{caillou:[1,1]},respawn:240,col:0x8d8a83},
+  herbe:{nom:"Herbes hautes",verbe:"Arracher",gain:{fibre:[1,2],graines:[0,1]},respawn:200,col:0x9ab35a},
+  buisson:{nom:"Bleuetier",verbe:"Cueillir",gain:{baies:[2,3]},respawn:240,keep:true,col:0x3b4fa0},
+  champignon:{nom:"Chanterelles",verbe:"Cueillir",gain:{champignon:[1,2]},respawn:300,col:0xe0a030},
+  rocher:{nom:"Rocher",verbe:"Miner",outil:"pioche",hp:4,gain:{pierre:[2,3],caillou:[0,2]},respawn:900,col:0x8d8a83},
+  fer:{nom:"Filon de magnétite (fer)",verbe:"Miner",outil:"pioche",hp:5,gain:{minerai_fer:[1,2]},respawn:1000,col:0x9a4a2a},
+  cuivre:{nom:"Filon de malachite (cuivre)",verbe:"Miner",outil:"pioche",hp:5,gain:{minerai_cuivre:[1,2]},respawn:1000,col:0x3fa58a},
+  salpetre:{nom:"Croûte de salpêtre",verbe:"Gratter",outil:"pioche",dark:true,hp:3,gain:{salpetre:[1,2]},respawn:600,col:0xf2f2ea},
+  argile:{nom:"Dépôt d'argile",verbe:"Prendre",gain:{argile:[2,3]},respawn:300,col:0xb5653a},
+  sable:{nom:"Sable fin",verbe:"Prendre",gain:{sable:[2,3]},respawn:300,col:0xd8c79a},
+  coquille:{nom:"Coquillages",verbe:"Ramasser",gain:{coquille:[1,2]},respawn:300,col:0xeee6d8},
+  poisson:{nom:"Banc de truites",verbe:"Pêcher",outil:"canne",hp:3,gain:{poisson:[1,2]},respawn:150,col:0xbfe3ff},
+  ferraille:{nom:"Carcasse rouillée",verbe:"Démonter",hp:3,gain:{ferraille:[2,3]},respawn:-1,col:0x8a4b2a},
+  statue:{nom:"Statue d'ambre",verbe:"Observer",lore:true},
+  panneau:{nom:"Vieux panneau",verbe:"Lire",lore:true},
+  vestige:{nom:"Objet ancien",verbe:"Ramasser"},
+};
+
+const REC=[
+  {id:"hache",nom:"Hache de pierre",st:null,cout:{baton:2,caillou:2,fibre:2},tool:true},
+  {id:"pioche",nom:"Pioche de pierre",st:null,cout:{baton:2,caillou:3,fibre:2},tool:true},
+  {id:"lance",nom:"Lance",st:null,cout:{baton:2,caillou:2,fibre:1},tool:true},
+  {id:"canne",nom:"Canne à pêche",st:null,cout:{baton:2,fibre:3},tool:true},
+  {id:"torche",nom:"Torche",st:"feu",cout:{baton:1,fibre:2},tool:true},
+  {id:"p_cuit",nom:"Poisson grillé",st:"feu",cout:{poisson:1},out:{poisson_cuit:1},sci:"cuisson"},
+  {id:"v_cuite",nom:"Viande grillée",st:"feu",cout:{viande:1},out:{viande_cuite:1},sci:"cuisson"},
+  {id:"manteau",nom:"Manteau de fourrure",st:"etabli",cout:{peau:4,fibre:3},tool:true},
+  {id:"creuset",nom:"Creuset d'argile",st:"four",cout:{argile:3},tool:true},
+  {id:"charbon",nom:"Charbon de bois ×2",st:"four",cout:{bois:3},out:{charbon:2}},
+  {id:"chaux",nom:"Chaux vive",st:"four",cout:{coquille:3,charbon:1},out:{chaux:1}},
+  {id:"pain",nom:"Pain ×2",st:"four",cout:{ble:3},out:{pain:2}},
+  {id:"vin",nom:"Vin de bleuets",st:"jarre",cout:{baies:6},out:{vin:1},sci:"jarre"},
+  {id:"fer_m",nom:"Lingot de fer (magnétite)",st:"fourneau",cout:{minerai_fer:3,charbon:2},out:{fer:1},sci:"fer"},
+  {id:"fer_s",nom:"Lingot de fer (ferraille)",st:"fourneau",cout:{ferraille:2,charbon:1},out:{fer:1},sci:"fer"},
+  {id:"cuivre",nom:"Lingot de cuivre",st:"fourneau",cout:{minerai_cuivre:2,charbon:1},needs:"creuset",out:{cuivre:1}},
+  {id:"verre",nom:"Verre",st:"fourneau",cout:{sable:3,chaux:1,charbon:1},needs:"creuset",out:{verre:1}},
+  {id:"fil",nom:"Fil de cuivre ×2",st:"forge",cout:{cuivre:1},out:{fil:2}},
+  {id:"hache_fer",nom:"Hache de fer",st:"forge",cout:{fer:2,bois:1},tool:true},
+  {id:"pioche_fer",nom:"Pioche de fer",st:"forge",cout:{fer:2,bois:1},tool:true},
+  {id:"alcool",nom:"Alcool (distillation)",st:"labo",cout:{vin:2},out:{alcool:1}},
+  {id:"acide",nom:"Acide nitrique",st:"labo",cout:{salpetre:2,argile:1,charbon:1},out:{acide:1}},
+  {id:"fluide",nom:"Fluide de réveil ×2",st:"labo",cout:{alcool:1,acide:1},out:{fluide:2}},
+  {id:"dynamo",nom:"Dynamo à manivelle",st:"etabli",cout:{fil:4,fer:2,bois:2},out:{dynamo:1}},
+];
+const STN={null:"À la main",feu:"Feu de camp",etabli:"Établi",four:"Four en argile",jarre:"Jarre de fermentation",fourneau:"Bas fourneau",forge:"Forge",labo:"Laboratoire"};
+
+const SCI={
+  hache:["Le levier","Le manche allonge ton bras : la pierre frappe beaucoup plus vite que ta main seule. L'énergie de l'impact grimpe avec le carré de la vitesse.","E = ½ m v²"],
+  lance:["Pression","Une pointe fine concentre toute la force du coup sur une toute petite surface. La pression devient énorme.","P = F / S"],
+  canne:["Flottaison","Le flotteur en bois est moins dense que l'eau : la poussée d'Archimède le garde en surface. Quand une truite mord, il plonge.","poussée = ρ(eau) · V · g"],
+  feu:["Combustion","Le bois sec s'enflamme vers 300 °C. Le cercle de cailloux garde la chaleur et empêche les braises de se répandre. Les loups s'en tiennent loin.","bois + O₂ → CO₂ + H₂O + chaleur"],
+  cuisson:["Réaction de Maillard","À plus de 140 °C, les sucres et les protéines réagissent et brunissent. La chaleur tue aussi les parasites de la chair crue.","sucres + acides aminés → arômes"],
+  torche:["Lumière de flamme","La flamme brille parce que de minuscules grains de carbone, chauffés à blanc, émettent de la lumière.","rayonnement thermique"],
+  abri:["Isolation","L'air immobile emprisonné entre les branches et la paille isole du froid, comme un manteau d'hiver.","air immobile ≈ 0,026 W/m·K"],
+  manteau:["Tannage","Frottées de cendre puis fumées, les peaux deviennent souples et ne pourrissent plus. La fourrure garde une couche d'air chaud contre ton corps.","peau + cendre + fumée → cuir"],
+  etabli:["Gabarit","Une surface plane et stable permet de répéter un geste avec précision. C'est le début de l'ingénierie.","précision → répétabilité"],
+  potager:["Photosynthèse","La plante fabrique son sucre avec la lumière, l'eau et le CO₂ de l'air. Garder des graines de chaque récolte, c'est le début de l'agriculture.","6 CO₂ + 6 H₂O → C₆H₁₂O₆ + 6 O₂"],
+  four:["Frittage","Vers 900 °C, les grains d'argile se soudent. La terre molle devient une céramique dure et imperméable.","argile + 900 °C → céramique"],
+  pain:["Le gluten","Pétrie avec de l'eau, la farine de blé forme un réseau élastique qui retient les bulles de gaz. Cuite, la pâte devient du pain.","farine + eau → réseau de gluten"],
+  charbon:["Pyrolyse","Chauffé presque sans oxygène, le bois perd son eau et ses gaz. Il reste du carbone presque pur, qui brûle beaucoup plus chaud.","bois → C + gaz + H₂O"],
+  chaux:["Calcination","Les coquillages sont du carbonate de calcium. Au four, ils libèrent leur CO₂ et deviennent de la chaux vive.","CaCO₃ → CaO + CO₂"],
+  jarre:["Fermentation","Dans la jarre fermée, les levures sauvages de la peau des bleuets mangent le sucre et rejettent de l'alcool et du gaz carbonique.","C₆H₁₂O₆ → 2 C₂H₅OH + 2 CO₂"],
+  creuset:["Réfractaire","Une argile épaisse bien cuite résiste à la chaleur du fourneau sans fondre. On y fond le cuivre et le verre.","tient au-delà de 1 400 °C"],
+  fourneau:["Tirage","La haute cheminée aspire l'air par le bas. Le charbon y brûle à plus de 1 200 °C en manquant d'oxygène et produit du monoxyde de carbone.","2 C + O₂ → 2 CO"],
+  fer:["Réduction du fer","Le monoxyde de carbone arrache l'oxygène au minerai. Il reste une loupe de fer spongieuse qu'on martèle pour chasser les scories.","Fe₃O₄ + 4 CO → 3 Fe + 4 CO₂"],
+  cuivre:["Malachite","Le vert des roches trahit le cuivre : c'est de la malachite. Elle se réduit bien plus facilement que le fer.","Cu₂CO₃(OH)₂ + C → 2 Cu + …"],
+  verre:["Fondants","Le sable seul fond à 1 700 °C. La chaux abaisse ce point vers 1 100 °C, à la portée de ton fourneau.","SiO₂ + CaO → verre"],
+  forge:["Martelage","Battre le fer chaud resserre ses grains et chasse les impuretés. Les outils de fer frappent deux fois plus fort.","fer + chaleur + coups → outil"],
+  fil:["Tréfilage","On tire le cuivre à travers des trous de plus en plus fins. Il s'allonge sans casser : c'est un métal très ductile.","conductivité ≈ 6 × 10⁷ S/m"],
+  salpetre:["Salpêtre","Dans les grottes, des bactéries transforment l'azote des fientes de chauves-souris en nitrate de potassium. Il cristallise en croûte blanche sur les parois.","KNO₃ (nitrate de potassium)"],
+  labo:["Alambic","On chauffe un mélange : ce qui s'évapore en premier monte, se refroidit dans le tube de cuivre et retombe goutte à goutte, séparé du reste.","séparation par point d'ébullition"],
+  alcool:["Distillation","L'éthanol bout à 78 °C, l'eau à 100 °C. En chauffant doucement le vin, c'est surtout l'alcool qui s'évapore et qu'on récupère.","éthanol : 78 °C · eau : 100 °C"],
+  acide:["Eau-forte","Les alchimistes chauffaient le salpêtre avec de l'argile : il s'en dégage des vapeurs qui, condensées, donnent de l'acide nitrique.","KNO₃ + argile + chaleur → HNO₃"],
+  fluide:["Nital","Un mélange d'acide nitrique et d'alcool. Les vrais chimistes s'en servent pour attaquer la surface des métaux. Dans ce monde, il dissout aussi la gangue d'ambre.","HNO₃ + C₂H₅OH"],
+  dynamo:["Induction","La magnétite est naturellement aimantée. En tournant devant une bobine de cuivre, elle fait circuler un courant électrique.","ε = −dΦ/dt (Faraday)"],
+  roue:["Hydroélectricité","Le courant de la rivière fait tourner la roue. Avec une bobine de cuivre et un aimant de magnétite, ce mouvement devient de l'électricité, jour et nuit.","énergie de l'eau → électricité"],
+  lampadaire:["Ampoule à filament de carbone","Une fibre carbonisée, traversée par le courant, chauffe jusqu'à briller. Dans l'ampoule de verre presque vide d'air, elle ne brûle pas.","P = R · I²"],
+  radio:["Ondes radio","Le courant qui oscille dans l'antenne rayonne une onde qui voyage à la vitesse de la lumière.","c = λ · f"],
+};
+
+const LORE=[
+  "Une femme en manteau d'hiver, figée en plein éclat de rire. Le tissu a disparu depuis longtemps ; l'ambre a gardé la forme.",
+  "Un homme penché sur un guidon qui n'existe plus.",
+  "Une femme qui pointe le ciel du doigt. Elle a vu la lueur, elle aussi.",
+  "Un vieil homme qui tient une tasse invisible. Sa main en garde le souvenir.",
+  "Une silhouette les bras tendus, comme pour attraper quelqu'un.",
+  "Un homme qui court. Une racine d'épinette s'est enroulée autour de ses chevilles.",
+  "Une femme penchée sur un livre. Il n'en reste rien.",
+  "Ta propre gangue, éclatée. Sur un fragment, l'empreinte de ton visage.",
+  "Un chauffeur assis dans le vide : le métal de son autobus a rouillé jusqu'à disparaître.",
+  "Une ingénieure en casque de chantier, figée devant ce qui était un viaduc.",
+  "Un spéléologue, lampe frontale sur la tête. Il explorait cette grotte quand la lueur est venue.",
+  "Une femme accroupie, qui protège sa tête de ses bras.",
+  "Un pêcheur debout dans l'eau jusqu'aux genoux. Le courant a poli l'ambre comme un galet.",
+  "Une randonneuse, sac au dos. Des champignons poussent dans les plis de la résine.",
+  "Un géologue, loupe à la main, penché sur une roche verte.",
+];
+const PEOPLE=[
+  {n:"Rosalie Tremblay",r:"cueilleuse",g:{baies:3,fibre:2,champignon:1},l:"Je rêvais que je cueillais des fraises à l'île d'Orléans… Où sont passées les maisons ?"},
+  {n:"Jacques Gagnon",r:"bûcheron",g:{bois:4,baton:2},l:"Trois mille ans ? Bon. Laisse-moi couper du bois, je réfléchis mieux en travaillant."},
+  {n:"Amira Haddad",r:"tailleuse de pierre",g:{pierre:3,caillou:2},l:"J'étais architecte. Tout est à reconstruire ? Parfait, je commence par la pierre."},
+  {n:"Kevin Côté",r:"pêcheur",g:{poisson:2},l:"Il y a encore des truites dans cette rivière ? Je m'en occupe."},
+  {n:"Sophie Nguyen",r:"agronome",g:{ble:2,graines:2},l:"Agronome, à ton service. Avec ces graines sauvages, on peut nourrir un village."},
+  {n:"Louis-Philippe Roy",r:"charbonnier",g:{charbon:2},l:"Du charbon de bois ? Mon grand-père en faisait au chalet. Je sais comment."},
+  {n:"Nadia Bouchard",r:"potière",g:{argile:3,sable:2},l:"De l'argile partout le long de la rivière… Je vais te ramener tout ça."},
+  {n:"Marc Pelletier",r:"chasseur",g:{viande:1,peau:1},l:"Je chassais le chevreuil en Abitibi. Les lièvres, c'est encore plus facile."},
+  {n:"Isabelle Fortin",r:"chimiste",g:{chaux:1,coquille:2},l:"Tu as fait du nital avec un alambic de fortune ? Je suis chimiste. Laisse-moi t'aider."},
+  {n:"Thomas Lavoie",r:"mineur",g:{minerai_fer:1,minerai_cuivre:1},l:"Les roches vertes, là-haut, c'est de la malachite. Je vais t'en rapporter."},
+  {n:"Chloé Morin",r:"cuisinière",g:{poisson_cuit:1,pain:1},l:"Personne ne mange du poisson cru tant que je suis là."},
+  {n:"Samuel Ouellet",r:"forgeron",g:{fer:1},l:"Une vraie forge, bâtie à la main ? On va faire du bel ouvrage."},
+  {n:"Léa Girard",r:"vigneronne",g:{vin:1,baies:2},l:"Du vin de bleuets ! Il m'en faut plus, et une bonne jarre."},
+  {n:"Grégoire Bélanger",r:"verrier",g:{verre:1},l:"Souffler le verre, c'était mon passe-temps. On va en avoir besoin."},
+];
+
+const B={
+  feu:{nom:"Feu de camp",cout:{bois:3,caillou:4},r:.8,desc:"Lumière, chaleur et cuisson. Les loups n'osent pas s'en approcher."},
+  etabli:{nom:"Établi",cout:{bois:6,baton:4},r:1.2,desc:"Plan de travail : manteau, mécanismes."},
+  abri:{nom:"Abri de bois",cout:{bois:8,fibre:6},r:1.8,desc:"Dors-y la nuit pour passer au matin et récupérer."},
+  potager:{nom:"Potager",cout:{bois:4,fibre:2,caillou:4},r:1.4,desc:"Sème 2 graines, reviens plus tard récolter du blé."},
+  four:{nom:"Four en argile",cout:{argile:8,pierre:4},r:1.4,desc:"Charbon de bois, chaux, pain et creusets."},
+  jarre:{nom:"Jarre de fermentation",cout:{argile:5,bois:2},r:.9,desc:"Transforme les bleuets en vin.",req:"four"},
+  fourneau:{nom:"Bas fourneau",cout:{argile:6,pierre:8,charbon:2},r:1.2,desc:"Fond le fer, le cuivre et le verre.",req:"four"},
+  forge:{nom:"Forge et enclume",cout:{fer:3,pierre:6,bois:4},r:1.5,desc:"Outils de fer et fil de cuivre."},
+  labo:{nom:"Laboratoire",cout:{verre:3,cuivre:2,bois:6,pierre:4},r:1.3,desc:"Alambic : alcool, acide nitrique, fluide de réveil."},
+  roue:{nom:"Roue à aubes",cout:{bois:10,fer:2,fil:3},r:1.6,desc:"À placer sur la rivière. Produit l'électricité des lampadaires.",water:true},
+  lampadaire:{nom:"Lampadaire",cout:{verre:1,fil:2,fer:1,bois:2},r:.5,desc:"S'allume la nuit si une roue à aubes tourne. Éloigne les loups.",req:"roue"},
+  mur_bois:{nom:"Palissade",cout:{bois:4},wall:true,r:1.2,desc:"Section de mur en rondins pour clôturer ton camp."},
+  mur_pierre:{nom:"Muret de pierre",cout:{pierre:5},wall:true,r:1.2,desc:"Section de mur en pierres sèches."},
+  radio:{nom:"Tour radio",cout:{bois:10,fer:4,fil:4,verre:2,dynamo:1},r:2.2,desc:"Le but ultime : lancer un appel par-delà le fleuve."},
+};
+
+const OBJ=[
+  ["Ramasse 3 branches, 3 cailloux et 2 fibres d'herbe",()=>got("baton")>=3&&got("caillou")>=3&&got("fibre")>=2],
+  ["Ouvre ton sac [Tab] et fabrique une hache de pierre",()=>S.tools.hache],
+  ["Coupe une épinette pour obtenir du bois",()=>got("bois")>=3],
+  ["Construis un feu de camp [B] avant la nuit",()=>built("feu")],
+  ["Fabrique une lance et une canne à pêche",()=>S.tools.lance&&S.tools.canne],
+  ["Chasse un lièvre ou pêche une truite à la rivière (est), puis cuis-la au feu",()=>got("poisson_cuit")+got("viande_cuite")>=1],
+  ["Fabrique une pioche de pierre et casse un rocher",()=>S.tools.pioche&&got("pierre")>=2],
+  ["Construis un établi et un abri",()=>built("etabli")&&built("abri")],
+  ["Construis un potager et sème des graines (dans les herbes hautes)",()=>S.stats.planted>=1],
+  ["Prends de l'argile au bord de la rivière et construis un four",()=>built("four")],
+  ["Fais du charbon de bois au four",()=>got("charbon")>=2],
+  ["Construis un bas fourneau",()=>built("fourneau")],
+  ["Coule un lingot de fer : magnétite dans les collines (nord-ouest) ou ferraille dans les ruines (sud)",()=>got("fer")>=1],
+  ["Construis une forge",()=>built("forge")],
+  ["Fais un creuset, puis du cuivre (roches vertes) et du verre (sable + chaux)",()=>got("cuivre")>=1&&got("verre")>=1],
+  ["Construis une jarre et fais fermenter du vin de bleuets",()=>got("vin")>=1],
+  ["Explore la grotte au nord-ouest avec une torche [T] et gratte 2 salpêtres",()=>got("salpetre")>=2],
+  ["Construis un laboratoire et prépare le fluide de réveil",()=>got("fluide")>=1],
+  ["Verse le fluide sur une statue d'ambre pour réveiller quelqu'un",()=>Object.keys(S.revived).length>=1],
+  ["Construis une roue à aubes sur la rivière, puis un lampadaire",()=>built("roue")&&built("lampadaire")],
+  ["Assemble une dynamo à l'établi",()=>got("dynamo")>=1],
+  ["Construis la tour radio",()=>built("radio")],
+];
+
+const VEST=[
+  {n:"Plaque « Je me souviens »",t:"Une plaque d'immatriculation du Québec, pliée en deux. La devise est encore lisible.",x:7,z:109},
+  {n:"Clé de voiture",t:"Le plastique a fondu avec les siècles. Il reste la tige de métal, verte de corrosion.",x:-9,z:115},
+  {n:"Téléphone cellulaire",t:"Un rectangle de verre éclaté. Le métal à l'intérieur pourrait encore servir.",x:19,z:119},
+  {n:"Montre de poche",t:"Ses aiguilles se sont arrêtées sur 11 h 03. L'heure de la lueur ?",x:-18,z:7},
+  {n:"Livre de chimie",t:"La couverture seulement, collée dans l'ambre. On lit « Chimie générale, 3e édition ».",cave:[0,-11]},
+  {n:"Boussole",t:"Elle indique encore le nord. Le champ magnétique de la Terre, lui, n'a pas changé.",cave:[2.2,-3.5]},
+  {n:"Casque de vélo",t:"Tout en haut des collines. Quelqu'un est monté ici pour voir la lueur de plus près.",x:-105,z:-100},
+  {n:"Bouteille de sirop d'érable",t:"Une bouteille de verre en forme de feuille d'érable. Vide, évidemment.",x:33,z:-60},
+  {n:"Pièce de 2 $",t:"Un « toonie » : l'ours polaire est encore visible sur le côté pile.",x:95,z:-130},
+  {n:"Rondelle de hockey",t:"Le caoutchouc a durci comme de la pierre. Indestructible.",x:-130,z:60},
+];
+
+const DEFIS=[
+  ["Pêcheur","Attraper 10 truites",()=>got("poisson"),10],
+  ["Chasseur","Attraper 5 lièvres",()=>S.stats.lievres,5],
+  ["Gardien du feu","Vaincre 3 loups",()=>S.stats.loups,3],
+  ["Archéologue","Trouver les 10 vestiges",()=>Object.keys(S.stats.vestiges).length,10],
+  ["Renaissance","Réveiller 5 personnes",()=>Object.keys(S.revived).length,5],
+  ["Village","Réveiller les 14 personnes",()=>Object.keys(S.revived).length,14],
+  ["Agriculteur","Faire 3 récoltes au potager",()=>S.stats.recoltes,3],
+  ["Bâtisseur","Poser 20 constructions",()=>S.builds.length,20],
+  ["Survivant","Atteindre le jour 7",()=>S.day,7],
+  ["Chimiste","Découvrir 20 sciences",()=>sciCount(),20],
+  ["Explorateur","Révéler 40 % de la carte",()=>Math.round(fogPct()*100),40],
+];
+
+/* ================= État ================= */
+let S;
+function fresh(){return{v:2,started:false,inv:Object.fromEntries(Object.keys(ITEMS).map(k=>[k,0])),tools:{},got:{},builds:[],dead:{},
+  day:1,time:7/24,clock:0,pos:{x:-25,z:15},yaw:0.6,faim:100,sante:100,obj:0,seen:{},ended:false,
+  stats:{lievres:0,loups:0,recoltes:0,planted:0,vestiges:{}},faith:{belief:"none",devotion:0,rites:0,lastDay:0},revived:{},npcStock:{},defis:{},fog:""};}
+const FOGN=64;let fogA=new Uint8Array(FOGN*FOGN);
+function save(){try{if(!S.faith)S.faith={belief:"none",devotion:0,rites:0,lastDay:0};S.pos={x:P.x,z:P.z};S.yaw=yaw;let f="";for(let i=0;i<fogA.length;i++)f+=fogA[i];S.fog=f;localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&(s.v===1||s.v===2)){const f=fresh();if(s.v===1){s.dead={};s.v=2;}
+  return Object.assign(f,s,{inv:Object.assign(f.inv,s.inv),stats:Object.assign(f.stats,s.stats||{}),revived:s.revived||{},npcStock:s.npcStock||{},defis:s.defis||{},faith:Object.assign(f.faith,s.faith||{}),fog:s.fog||""});}}catch(e){}return null;}
+const got=k=>S.got[k]||0;
+const built=t=>S.builds.some(b=>b.t===t);
+const sciCount=()=>Object.keys(S.seen).filter(k=>k.startsWith("sci_")).length;
+function fogPct(){let n=0;for(let i=0;i<fogA.length;i++)n+=fogA[i];return n/fogA.length;}
+
+/* ================= Monde ================= */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rng=mulberry32(3724);
+function hash(x,z){const h=Math.sin(x*127.1+z*311.7)*43758.5453;return h-Math.floor(h);}
+function vnoise(x,z){const xi=Math.floor(x),zi=Math.floor(z),xf=x-xi,zf=z-zi,u=xf*xf*(3-2*xf),v=zf*zf*(3-2*zf);
+  const a=hash(xi,zi),b=hash(xi+1,zi),c=hash(xi,zi+1),d=hash(xi+1,zi+1);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;}
+function fbm(x,z){let s=0,a=1,f=1;for(let i=0;i<4;i++){s+=a*vnoise(x*f,z*f);a*=.5;f*=2;}return s/1.875;}
+const sm=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
+const SIZE=380,HALF=190,SEG=170,N=SEG+1,CELL=SIZE/SEG;
+const HILL={x:-105,z:-100},RUINS={x:5,z:105},SPAWN={x:-25,z:15},CAVE={x:-62,z:-38};
+const riverX=z=>72+28*Math.sin(z/52)+10*Math.sin(z/17+1);
+// Deux affluents supplémentaires pour rendre le réseau hydrographique plus dense.
+const river2X=z=>-112+19*Math.sin(z/43+1.2)+7*Math.sin(z/15);
+const river3X=z=>-8+23*Math.sin(z/61-1.1);
+function baseH(x,z){
+  let h=(fbm(x/55+3,z/55+7)-.45)*12+3.5;
+  const hd=Math.hypot(x-HILL.x,z-HILL.z);h+=Math.pow(Math.max(0,1-hd/95),1.6)*34*(.7+.6*fbm(x/20,z/20));
+  const rd=Math.hypot(x-RUINS.x,z-RUINS.z);if(rd<40){const t=sm(18,40,rd);h=h*t+3*(1-t);}
+  const sd=Math.hypot(x-SPAWN.x,z-SPAWN.z);if(sd<26){const t=sm(10,26,sd);h=h*t+4*(1-t);}
+  for(const rx of [riverX(z),river2X(z),river3X(z)]){const dr=Math.abs(x-rx);const t=sm(2.8,12,dr);h=h*t-2.1*(1-t);}
+  const e=Math.max(Math.abs(x),Math.abs(z));if(e>HALF-35)h+=(e-(HALF-35))*1.1;
+  return h;
+}
+const CAVE_H=Math.max(2.5,baseH(CAVE.x,CAVE.z));
+function rawH(x,z){let h=baseH(x,z);const d=Math.hypot(x-CAVE.x,z-CAVE.z);if(d<30){const t=sm(14,30,d);h=h*t+CAVE_H*(1-t);}return h;}
+const CAVE_RY=Math.atan2(SPAWN.x-CAVE.x,SPAWN.z-CAVE.z),CC=Math.cos(CAVE_RY),CS=Math.sin(CAVE_RY);
+const caveW=(lx,lz)=>[CAVE.x+lx*CC+lz*CS,CAVE.z-lx*CS+lz*CC];
+const caveL=(x,z)=>{const dx=x-CAVE.x,dz=z-CAVE.z;return[dx*CC-dz*CS,dx*CS+dz*CC];};
+const H=new Float32Array(N*N);
+for(let i=0;i<N;i++)for(let j=0;j<N;j++)H[i*N+j]=rawH(-HALF+j*CELL,-HALF+i*CELL);
+function groundAt(x,z){
+  const fx=(x+HALF)/CELL,fz=(z+HALF)/CELL;const j=Math.max(0,Math.min(SEG-1,Math.floor(fx))),i=Math.max(0,Math.min(SEG-1,Math.floor(fz)));
+  const u=Math.min(1,Math.max(0,fx-j)),v=Math.min(1,Math.max(0,fz-i));
+  const a=H[i*N+j],b=H[i*N+j+1],c=H[(i+1)*N+j],d=H[(i+1)*N+j+1];
+  return u+v<=1? a+(b-a)*u+(c-a)*v : d+(c-d)*(1-u)+(b-d)*(1-v);
+}
+
+/* ================= Three.js ================= */
+const canvas=$("c");
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(2,devicePixelRatio));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();
+scene.fog=new THREE.Fog(0x9cc7e0,40,175);
+const camera=new THREE.PerspectiveCamera(70,1,.1,420);camera.rotation.order="YXZ";scene.add(camera);
+const hemi=new THREE.HemisphereLight(0xcfe6ff,0x4a3b28,.6);scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xfff1d6,.9);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-55,right:55,top:55,bottom:-55,near:1,far:200});sun.shadow.bias=-.0008;scene.add(sun);scene.add(sun.target);
+const torchLight=new THREE.PointLight(0xffb060,0,22,1.6);torchLight.position.set(.3,0,-.3);camera.add(torchLight);
+
+function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+addEventListener("resize",resize);resize();
+
+const phong=(c,o={})=>new THREE.MeshPhongMaterial(Object.assign({color:c,flatShading:true,shininess:4},o));
+const M={bark:phong(0x6b4426),plank:phong(0x9a6a3d),pine:phong(0x2f5a34),pine2:phong(0x3d6b3c),stone:phong(0x8d8a83),stone2:phong(0x75736c),caveR:phong(0x5e5a54),
+  grass:phong(0x8fae55),grass2:phong(0x748f3f),bush:phong(0x2f5130),berry:phong(0x3b4fa0,{shininess:40}),rust:phong(0x9a4a2a),mala:phong(0x3fa58a,{shininess:30}),
+  clay:phong(0xa65a33),clayF:phong(0xb5653a),sand:phong(0xd8c79a),shell:phong(0xeee6d8),paille:phong(0xc9a95a),iron:phong(0x3d4148,{shininess:30}),copper:phong(0xb8733a,{shininess:50}),
+  dark:phong(0x1a1410),soil:phong(0x4a3424),conc:phong(0x9a978d),moss:phong(0x5d7444),rust2:phong(0x6e3a22),signG:phong(0x2f5e44),
+  salp:phong(0xf4f4ec,{emissive:0x2a2a26,shininess:60}),stem:phong(0xf0e6cf),chant:phong(0xe0a030),hare:phong(0x8a6a48),wolf:phong(0x5f5f5c),
+  glass:phong(0xbfe3ff,{transparent:true,opacity:.45,shininess:100,flatShading:false}),
+  amber:phong(0xe8a33a,{emissive:0x4a2a04,transparent:true,opacity:.85,shininess:90,flatShading:false}),
+  shellA:phong(0xf0b250,{emissive:0x3a2004,transparent:true,opacity:.32,shininess:90,depthWrite:false,flatShading:false}),
+  ripple:new THREE.MeshBasicMaterial({color:0xe8f4ff,transparent:true,opacity:.55}),fish:phong(0x3e4a52),
+  flame:new THREE.MeshBasicMaterial({color:0xff8a2a}),flame2:new THREE.MeshBasicMaterial({color:0xffd060}),glow:new THREE.MeshBasicMaterial({color:0xff5a1a}),red:new THREE.MeshBasicMaterial({color:0xff3020}),
+  eye:new THREE.MeshBasicMaterial({color:0xffd040}),gold:new THREE.MeshBasicMaterial({color:0xffc860}),beam:new THREE.MeshBasicMaterial({color:0xffc860,transparent:true,opacity:.22,depthWrite:false})};
+
+/* Terrain */
+{
+  const geo=new THREE.PlaneGeometry(SIZE,SIZE,SEG,SEG);geo.rotateX(-Math.PI/2);
+  const pos=geo.attributes.position,col=new Float32Array(pos.count*3);const c=new THREE.Color();
+  const cSand=new THREE.Color(0xcbb98a),cG1=new THREE.Color(0x4f7a3a),cG2=new THREE.Color(0x76944a),cRock=new THREE.Color(0x7d7a72),cMud=new THREE.Color(0x6f5a3c),cSnow=new THREE.Color(0xd9dde0);
+  for(let k=0;k<pos.count;k++){
+    const i=Math.floor(k/N),j=k%N;const h=H[k];pos.setY(k,h);
+    const x=pos.getX(k),z=pos.getZ(k);
+    const hl=H[i*N+Math.max(0,j-1)],hr=H[i*N+Math.min(SEG,j+1)],hu=H[Math.max(0,i-1)*N+j],hd=H[Math.min(SEG,i+1)*N+j];
+    const slope=(Math.abs(hr-hl)+Math.abs(hd-hu))/(2*CELL);
+    c.copy(cG1).lerp(cG2,fbm(x/18,z/18));
+    const dr=Math.min(Math.abs(x-riverX(z)),Math.abs(x-river2X(z)),Math.abs(x-river3X(z)));if(dr<14&&h<2.8)c.lerp(cMud,.35);
+    // Quatre grandes régions bioclimatiques colorent le terrain.
+    const swamp=Math.hypot(x-105,z-105),jungle=Math.hypot(x-118,z+92),taiga=Math.hypot(x+125,z-35),underground=Math.hypot(x+88,z+100);
+    if(swamp<53)c.lerp(new THREE.Color(0x596b3c),1-sm(42,56,swamp)*.72);
+    if(jungle<58)c.lerp(new THREE.Color(0x28623b),1-sm(46,62,jungle)*.7);
+    if(taiga<55)c.lerp(new THREE.Color(0x486b53),1-sm(43,60,taiga)*.65);
+    if(underground<30)c.lerp(cRock,.2);
+    if(h<.9)c.lerp(cSand,sm(.9,0,h));
+    if(slope>.7||h>16)c.lerp(cRock,Math.min(1,Math.max(sm(.7,1.2,slope),sm(16,22,h))));
+    if(h>32)c.lerp(cSnow,sm(32,40,h));
+    if(Math.hypot(x-CAVE.x,z-CAVE.z)<14)c.lerp(cRock,.5);
+    col[k*3]=c.r;col[k*3+1]=c.g;col[k*3+2]=c.b;
+  }
+  geo.setAttribute("color",new THREE.BufferAttribute(col,3));geo.computeVertexNormals();
+  const t=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({vertexColors:true}));t.receiveShadow=true;scene.add(t);
+  const w=new THREE.Mesh(new THREE.PlaneGeometry(SIZE*1.6,SIZE*1.6),new THREE.MeshPhongMaterial({color:0x3b6f7a,transparent:true,opacity:.78,shininess:80}));
+  w.rotation.x=-Math.PI/2;w.position.y=-.05;scene.add(w);
+  // Rubans d'eau qui suivent les trois cours d'eau, avec des berges irrégulières.
+  const waterMat=new THREE.MeshPhongMaterial({color:0x438b9b,transparent:true,opacity:.82,shininess:75,side:THREE.DoubleSide});
+  for(const path of [riverX,river2X,river3X]){
+    const verts=[],indices=[];const steps=150;
+    for(let i=0;i<=steps;i++){const z=-HALF+12+i*(SIZE-24)/steps,x=path(z),w0=2.3+1.1*(.5+.5*Math.sin(z*.23));verts.push(x-w0,-.01,z,x+w0,-.01,z);if(i<steps){const a=i*2;indices.push(a,a+1,a+2,a+1,a+3,a+2);}}
+    const wg=new THREE.BufferGeometry();wg.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));wg.setIndex(indices);wg.computeVertexNormals();scene.add(new THREE.Mesh(wg,waterMat));
+  }
+}
+
+/* Objets récoltables */
+const objs=[],byKind={},colliders=[];
+function add(kind,x,z,s=1,extra){const o=Object.assign({id:objs.length,kind,x,z,y:groundAt(x,z),s,rot:rng()*6.283,hp:(KINDS[kind].hp||1),dead:false},extra);
+  objs.push(o);(byKind[kind]=byKind[kind]||[]).push(o);return o;}
+const dCave=(x,z)=>Math.hypot(x-CAVE.x,z-CAVE.z);
+function scatter(kind,n,ok,s0=.8,s1=1.2){let tries=0;while(n>0&&tries<n*80+3000){tries++;const x=(rng()*2-1)*(HALF-38),z=(rng()*2-1)*(HALF-38);const h=groundAt(x,z);
+  if(dCave(x,z)<20)continue;if(ok(x,z,h)){add(kind,x,z,s0+rng()*(s1-s0));n--;}}}
+const forest=(x,z)=>fbm(x/45+20,z/45-11);
+const dSp=(x,z)=>Math.hypot(x-SPAWN.x,z-SPAWN.z),dRu=(x,z)=>Math.hypot(x-RUINS.x,z-RUINS.z),dHi=(x,z)=>Math.hypot(x-HILL.x,z-HILL.z),dRi=(x,z)=>Math.min(Math.abs(x-riverX(z)),Math.abs(x-river2X(z)),Math.abs(x-river3X(z)));
+for(let i=0;i<14;i++){const a=rng()*6.283,r=4+rng()*12;add("branche",SPAWN.x+Math.cos(a)*r,SPAWN.z+Math.sin(a)*r,.9+rng()*.3);}
+for(let i=0;i<14;i++){const a=rng()*6.283,r=4+rng()*12;add("caillou",SPAWN.x+Math.cos(a)*r,SPAWN.z+Math.sin(a)*r,.9+rng()*.4);}
+for(let i=0;i<10;i++){const a=rng()*6.283,r=5+rng()*12;add("herbe",SPAWN.x+Math.cos(a)*r,SPAWN.z+Math.sin(a)*r,.9+rng()*.3);}
+for(let i=0;i<4;i++){const a=rng()*6.283,r=10+rng()*8;add("buisson",SPAWN.x+Math.cos(a)*r,SPAWN.z+Math.sin(a)*r,.9+rng()*.3);}
+for(let i=0;i<3;i++){const a=i*2.1+.5,r=14+rng()*4;add("rocher",SPAWN.x+Math.cos(a)*r,SPAWN.z+Math.sin(a)*r,.8+rng()*.3);}
+scatter("arbre",560,(x,z,h)=>h>1.2&&h<20&&dSp(x,z)>11&&dRu(x,z)>26&&forest(x,z)>.42&&dRi(x,z)>9,.8,1.35);
+scatter("branche",150,(x,z,h)=>h>1&&h<20&&forest(x,z)>.38);
+scatter("caillou",150,(x,z,h)=>h>.8&&h<24);
+scatter("herbe",240,(x,z,h)=>h>1&&h<12&&forest(x,z)<.55);
+scatter("buisson",80,(x,z,h)=>h>1.2&&h<11&&forest(x,z)<.5,.8,1.2);
+scatter("champignon",90,(x,z,h)=>h>1.2&&h<16&&forest(x,z)>.48,.8,1.3);
+scatter("rocher",110,(x,z,h)=>dHi(x,z)<95&&h>3,.8,1.6);
+scatter("rocher",40,(x,z,h)=>h>1&&dSp(x,z)>14&&dRu(x,z)>22,.7,1.2);
+scatter("fer",30,(x,z,h)=>dHi(x,z)<75&&h>8,.8,1.2);
+scatter("cuivre",24,(x,z,h)=>dHi(x,z)<80&&h>6,.8,1.2);
+scatter("argile",55,(x,z,h)=>{const d=dRi(x,z);return d>4&&d<14&&h>-.4&&h<2.5;},.9,1.4);
+scatter("sable",40,(x,z,h)=>{const d=dRi(x,z);return d>2.5&&d<11&&h<1.6&&h>-.6;},.9,1.4);
+scatter("coquille",45,(x,z,h)=>h>-.3&&h<1&&dRi(x,z)<14,.9,1.3);
+for(let z=-150;z<150;z+=13+rng()*9){const side=rng()<.5?-1:1;const x=riverX(z)+side*(4.6+rng()*1.2);if(groundAt(x,z)<-.6)add("poisson",x,z,1,{y:-.03});}
+[[2.6,-4],[-2.7,-5.5],[2.7,-9.5],[-2.6,-12.5],[0,-14.6],[2.4,-13.8]].forEach(([lx,lz])=>{const[x,z]=caveW(lx,lz);add("salpetre",x,z,1+rng()*.3);});
+
+const G={trunk:new THREE.CylinderGeometry(.18,.3,2,6),c1:new THREE.ConeGeometry(1.5,2.8,7),c2:new THREE.ConeGeometry(1.1,2.2,7),c3:new THREE.ConeGeometry(.7,1.6,7),
+  stick:new THREE.CylinderGeometry(.05,.07,1.1,5),pebble:new THREE.DodecahedronGeometry(.18,0),grass:new THREE.ConeGeometry(.22,.9,4),
+  bush:new THREE.IcosahedronGeometry(.7,0),berry:new THREE.IcosahedronGeometry(.11,0),rock:new THREE.DodecahedronGeometry(1,0),
+  patch:new THREE.CylinderGeometry(1,1.15,.12,9),shell:new THREE.SphereGeometry(.15,6,4,0,6.283,0,1.57),box:new THREE.BoxGeometry(1,1,1),cyl:new THREE.CylinderGeometry(1,1,1,8),
+  crys:new THREE.ConeGeometry(.1,.55,5),stemG:new THREE.CylinderGeometry(.045,.06,.18,6),cap:new THREE.ConeGeometry(.15,.12,8),
+  ring:new THREE.TorusGeometry(.75,.03,4,18),fishG:new THREE.ConeGeometry(.08,.4,5)};
+const VIS={
+  arbre:[{g:G.trunk,m:M.bark,y:1},{g:G.c1,m:M.pine,y:2.6},{g:G.c2,m:M.pine2,y:3.9},{g:G.c3,m:M.pine,y:5}],
+  branche:[{g:G.stick,m:M.bark,y:.06,rz:Math.PI/2}],
+  caillou:[{g:G.pebble,m:M.stone,y:.08}],
+  herbe:[{g:G.grass,m:M.grass,y:.4},{g:G.grass,m:M.grass,y:.32,dx:.22,sc:.8},{g:G.grass,m:M.grass2,y:.33,dx:-.18,dz:.16,sc:.85}],
+  buisson:[{g:G.bush,m:M.bush,y:.42,sc:[1,.75,1]},{g:G.berry,m:M.berry,y:.7,dx:.35,dz:.1,fruit:1},{g:G.berry,m:M.berry,y:.55,dx:-.3,dz:.3,fruit:1},{g:G.berry,m:M.berry,y:.8,dx:.05,dz:-.35,fruit:1},{g:G.berry,m:M.berry,y:.5,dx:.2,dz:.45,fruit:1}],
+  champignon:[{g:G.stemG,m:M.stem,y:.09},{g:G.cap,m:M.chant,y:.21},{g:G.stemG,m:M.stem,y:.07,dx:.2,dz:.1,sc:.75},{g:G.cap,m:M.chant,y:.16,dx:.2,dz:.1,sc:.75},{g:G.stemG,m:M.stem,y:.07,dx:-.12,dz:.2,sc:.65},{g:G.cap,m:M.chant,y:.14,dx:-.12,dz:.2,sc:.65}],
+  rocher:[{g:G.rock,m:M.stone,y:.45,sc:[1.3,.9,1.1]}],
+  fer:[{g:G.rock,m:M.stone2,y:.4,sc:[1,.8,1]},{g:G.pebble,m:M.rust,y:.8,dx:.25,sc:2.2},{g:G.pebble,m:M.rust,y:.6,dx:-.35,dz:.2,sc:1.8}],
+  cuivre:[{g:G.rock,m:M.stone2,y:.4,sc:[1,.8,1]},{g:G.pebble,m:M.mala,y:.8,dx:-.2,sc:2.2},{g:G.pebble,m:M.mala,y:.55,dx:.4,dz:.15,sc:1.8}],
+  salpetre:[{g:G.rock,m:M.caveR,y:.25,sc:[.7,.5,.7]},{g:G.crys,m:M.salp,y:.6},{g:G.crys,m:M.salp,y:.5,dx:.2,dz:.1,rz:.4,sc:.8},{g:G.crys,m:M.salp,y:.5,dx:-.2,dz:-.05,rz:-.4,sc:.85},{g:G.crys,m:M.salp,y:.45,dz:.22,rx:.4,sc:.7}],
+  argile:[{g:G.patch,m:M.clayF,y:.03}],
+  sable:[{g:G.patch,m:M.sand,y:.04,sc:[1.2,1,1.2]}],
+  coquille:[{g:G.shell,m:M.shell,y:0},{g:G.shell,m:M.shell,y:0,dx:.3,dz:.2,sc:.8},{g:G.shell,m:M.shell,y:0,dx:-.2,dz:.25,sc:.7}],
+  poisson:[{g:G.ring,m:M.ripple,y:0,rx:Math.PI/2},{g:G.ring,m:M.ripple,y:0,rx:Math.PI/2,sc:.55},{g:G.fishG,m:M.fish,y:-.12,dx:.3,rz:Math.PI/2},{g:G.fishG,m:M.fish,y:-.15,dx:-.25,dz:.3,rz:Math.PI/2}],
+};
+const dummy=new THREE.Object3D();
+for(const kind in VIS){const list=byKind[kind]||[];
+  VIS[kind].forEach(p=>{const im=new THREE.InstancedMesh(p.g,p.m,Math.max(1,list.length));im.count=list.length;im.castShadow=["arbre","rocher","fer","cuivre","buisson"].includes(kind);im.receiveShadow=true;
+    im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(im);p.im=im;
+    list.forEach((o,idx)=>{(o.parts=o.parts||[]).push({p,idx});});});
+  list.forEach(o=>setVis(o,true));}
+function setVis(o,vis,fruitOnly){
+  if(o.mesh){o.mesh.visible=vis;return;}
+  for(const {p,idx} of o.parts){if(fruitOnly&&!p.fruit)continue;
+    const sc=p.sc===undefined?1:p.sc;const s=vis?o.s:0;
+    dummy.position.set(o.x+(p.dx||0)*o.s,o.y+(p.y||0)*o.s,o.z+(p.dz||0)*o.s);
+    dummy.rotation.set(p.rx||0,o.rot,p.rz||0);
+    if(Array.isArray(sc))dummy.scale.set(s*sc[0],s*sc[1],s*sc[2]);else dummy.scale.setScalar(s*sc);
+    dummy.updateMatrix();p.im.setMatrixAt(idx,dummy.matrix);p.im.instanceMatrix.needsUpdate=true;}
+}
+const CR={arbre:.45,rocher:1.1,fer:.9,cuivre:.9};
+objs.forEach(o=>{if(CR[o.kind])colliders.push({x:o.x,z:o.z,r:CR[o.kind]*o.s,o});});
+
+function mk(geo,mat,x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0,rz=0){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.rotation.set(rx,ry,rz);m.castShadow=m.receiveShadow=true;return m;}
+function beam(g,a,b,r,mat){const d=new THREE.Vector3().subVectors(b,a),L=d.length();const m=new THREE.Mesh(G.cyl,mat);m.scale.set(r,L,r);
+  m.position.copy(a).addScaledVector(d,.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());m.castShadow=true;g.add(m);return m;}
+
+/* Biomes additionnels : marais, jungle, taïga et entrées de réseaux souterrains */
+{
+  const swamp={x:105,z:105},jungle={x:118,z:-92},taiga={x:-125,z:35};
+  const trunkMat=M.bark,leafJ=phong(0x246b38),leafJ2=phong(0x38894a),mossMat=phong(0x607744),waterMat=new THREE.MeshPhongMaterial({color:0x526f55,transparent:true,opacity:.72,shininess:25});
+  function tree(x,z,type){const y=groundAt(x,z),g=new THREE.Group();g.position.set(x,y,z);
+    if(type==='jungle'){
+      g.add(mk(G.cyl,trunkMat,0,3,0,.34,6,.34));
+      for(let k=0;k<5;k++){const a=k*1.256;g.add(mk(new THREE.SphereGeometry(1.7,7,5),k%2?leafJ:leafJ2,Math.cos(a)*.9,5.1+Math.sin(a*.8)*.45,Math.sin(a)*.9,1.25,.8,1.2));}
+      for(let k=0;k<3;k++){const a=k*2.1;g.add(mk(G.cyl,leafJ,Math.cos(a)*1.1,3.3,Math.sin(a)*1.1,.05,3,.05,0,0,Math.cos(a)*-.6));}
+    }else if(type==='taiga'){
+      g.add(mk(G.cyl,trunkMat,0,1.7,0,.25,3.4,.25));for(let k=0;k<4;k++)g.add(mk(G.c1,k%2?M.pine2:M.pine,0,2.1+k*.85,0,1.6-k*.28,1.9,1.6-k*.28));
+    }else{
+      g.add(mk(G.cyl,trunkMat,0,1.8,0,.22,3.6,.22));g.add(mk(new THREE.SphereGeometry(1.4,7,5),mossMat,0,3.4,0,1.6,.8,1.5));
+    }
+    scene.add(g);return g;
+  }
+  // Plantes serrées en jungle et conifères dans la taïga.
+  for(let i=0;i<90;i++){let a=rng()*Math.PI*2,r=7+Math.sqrt(rng())*43,x=jungle.x+Math.cos(a)*r,z=jungle.z+Math.sin(a)*r;if(Math.abs(x)<HALF-12&&Math.abs(z)<HALF-12&&groundAt(x,z)>.3)tree(x,z,'jungle');}
+  for(let i=0;i<85;i++){let a=rng()*Math.PI*2,r=7+Math.sqrt(rng())*42,x=taiga.x+Math.cos(a)*r,z=taiga.z+Math.sin(a)*r;if(Math.abs(x)<HALF-12&&Math.abs(z)<HALF-12&&groundAt(x,z)>.3)tree(x,z,'taiga');}
+  for(let i=0;i<45;i++){let a=rng()*Math.PI*2,r=5+Math.sqrt(rng())*39,x=swamp.x+Math.cos(a)*r,z=swamp.z+Math.sin(a)*r;if(Math.abs(x)<HALF-12&&Math.abs(z)<HALF-12&&groundAt(x,z)>.1)tree(x,z,'swamp');}
+  // Flaques et mares dans le marais.
+  for(let i=0;i<12;i++){const a=rng()*6.283,r=8+rng()*34,x=swamp.x+Math.cos(a)*r,z=swamp.z+Math.sin(a)*r;const pond=new THREE.Mesh(new THREE.CircleGeometry(2+rng()*2.6,12),waterMat);pond.rotation.x=-Math.PI/2;pond.position.set(x,Math.max(.02,groundAt(x,z)+.06),z);scene.add(pond);}
+  // Plusieurs entrées de grottes : arches rocheuses et conduits obscurs visibles à explorer.
+  const entrances=[{x:-88,z:-100,a:.25},{x:95,z:-42,a:-.8},{x:18,z:-137,a:.9},{x:140,z:18,a:2.2},{x:-145,z:105,a:-1.4}];
+  entrances.forEach((e,idx)=>{const g=new THREE.Group();g.position.set(e.x,groundAt(e.x,e.z)+.1,e.z);g.rotation.y=e.a;
+    const dark=phong(0x100f0d,{emissive:0x050505}),rock=M.caveR;
+    g.add(mk(G.box,dark,0,1.55,-1.4,4.5,3.1,.18));
+    for(const side of [-1,1])for(let k=0;k<3;k++)g.add(mk(G.rock,rock,side*2.15, .45+k*.75,-.1+(k%2)*.25,1.05,1.15,1.1,rng()*.25,rng()*2,rng()*.2));
+    g.add(mk(G.rock,rock,0,3.15,-.1,2.7,.9,1.2,.1,rng()*2,.1));
+    for(let k=0;k<3;k++)g.add(mk(new THREE.ConeGeometry(.16,.8,5),rock,-1.1+k*1.1,2.6,-.2,1,1,1,Math.PI,0,0));
+    scene.add(g);
+  });
+}
+
+
+/* Grotte */
+{const g=new THREE.Group();g.position.set(CAVE.x,CAVE_H,CAVE.z);g.rotation.y=CAVE_RY;scene.add(g);
+ const rk=(lx,y,lz,sx,sy,sz,col=true)=>{const m=mk(G.rock,M.caveR,lx,y,lz,sx,sy,sz,rng()*.4,rng()*3,rng()*.4);g.add(m);
+   if(col){const[x,z]=caveW(lx,lz);colliders.push({x,z,r:Math.min(sx,sz)*.95});}};
+ for(let lz=0;lz>=-15;lz-=1.7){rk(-5,1.9,lz,1.8,2.6,1.4);rk(5,1.9,lz,1.8,2.6,1.4);}
+ for(let lx=-4;lx<=4;lx+=2)rk(lx,1.9,-16.6,1.5,2.6,1.6);
+ const roof=mk(G.box,M.caveR,0,4.6,-8,11,1.4,18.5);g.add(roof);
+ for(let k=0;k<9;k++)rk((rng()-.5)*9,5.4+rng(),-1-rng()*15,2.4,1.4,2.2,false);
+ rk(-6.5,1.2,1.2,2,1.6,1.6);rk(6.5,1.2,1.2,2,1.6,1.6);
+ g.add(mk(G.box,M.dark,0,.03,-8,8,.06,17));
+ for(let k=0;k<8;k++){const m=mk(new THREE.ConeGeometry(.15,.9,5),M.caveR,(rng()-.5)*6,3.5,-2-rng()*13,1,1,1,Math.PI,0,0);g.add(m);}
+ g.traverse(m=>{if(m.isMesh)m.receiveShadow=true;});
+}
+function caveFactor(x,z){const[lx,lz]=caveL(x,z);if(Math.abs(lx)>4.2||lz>.5||lz<-17)return 0;return sm(0,-4,lz);}
+
+/* Statues d'ambre et ta gangue brisée */
+function statue(x,z,pose,lore,extra){const g=new THREE.Group();const y=groundAt(x,z);g.position.set(x,y,z);g.rotation.y=rng()*6.28;
+  g.add(mk(G.cyl,M.amber,-.13,.45,0,.1,.9,.1));g.add(mk(G.cyl,M.amber,.13,.45,0,.1,.9,.1));
+  g.add(mk(G.cyl,M.amber,0,1.25,0,.24,.75,.17));g.add(mk(new THREE.SphereGeometry(.17,10,8),M.amber,0,1.78,0));
+  const armL=mk(G.cyl,M.amber,-.32,1.25,0,.07,.65,.07,0,0,pose===1?-2.6:.15);if(pose===1)armL.position.y=1.65;g.add(armL);
+  g.add(mk(G.cyl,M.amber,.32,1.25,0,.07,.65,.07,pose===2?-1.2:0,0,-.15));
+  g.add(mk(new THREE.CylinderGeometry(.55,.62,2.15,10),M.shellA,0,1.08,0));
+  g.add(mk(G.patch,M.moss,0,.05,0,.7,1,.7));
+  scene.add(g);const o=add("statue",x,z,1,Object.assign({mesh:g,lore},extra));colliders.push({x,z,r:.55,o});return o;}
+[[4,7],[-6,9],[9,-3],[-10,-4],[2,-11],[12,8],[-3,13]].forEach(([dx,dz],i)=>statue(SPAWN.x+dx,SPAWN.z+dz,i%3,LORE[i]));
+{const y=groundAt(SPAWN.x,SPAWN.z);for(let i=0;i<9;i++){const a=i*.7,r=.6+rng()*1.2;const m=mk(new THREE.TetrahedronGeometry(.25+rng()*.25),M.amber,SPAWN.x+Math.cos(a)*r,y+.12,SPAWN.z+Math.sin(a)*r,1,1,1,rng()*3,rng()*3,0);scene.add(m);}
+ const half=mk(new THREE.CylinderGeometry(.6,.65,1.1,10,1,true,0,3.3),M.shellA,SPAWN.x+.4,y+.5,SPAWN.z-.3,1,1,1,0,.4,.25);scene.add(half);
+ add("statue",SPAWN.x+.4,SPAWN.z-.3,1,{mesh:half,lore:LORE[7],self:true});}
+[[2.3,-12,10],[-2.3,-7.5,11]].forEach(([lx,lz,i])=>{const[x,z]=caveW(lx,lz);statue(x,z,i%3,LORE[i]);});
+statue(riverX(30)-5.5,30,0,LORE[12]);statue(-92,82,1,LORE[13]);statue(-82,-128,2,LORE[14]);
+
+/* Ruines */
+{const R=RUINS,g=new THREE.Group();scene.add(g);
+ const P=(x,z,w,h,d,mat,rx=0,ry=0,rz=0,dy=0)=>{const m=mk(G.box,mat,x,groundAt(x,z)+h/2+dy,z,w,h,d,rx,ry,rz);g.add(m);return m;};
+ P(R.x-12,R.z-6,1.8,9,1.8,M.conc);P(R.x-12,R.z-6,1.85,.6,1.85,M.moss,0,0,0,4.5);colliders.push({x:R.x-12,z:R.z-6,r:1.3});
+ P(R.x+7,R.z-6,1.8,5.5,1.8,M.conc,0,0,.06);colliders.push({x:R.x+7,z:R.z-6,r:1.3});
+ const deck=mk(G.box,M.conc,R.x-3,groundAt(R.x-3,R.z-6)+4.6,R.z-6,22,1.1,6,0,0,-.38);g.add(deck);
+ g.add(mk(G.box,M.moss,R.x-3,groundAt(R.x-3,R.z-6)+5.25,R.z-6,18,.2,5,0,0,-.38));
+ for(let i=0;i<8;i++){const a=rng()*6.28,r=8+rng()*16;P(R.x+Math.cos(a)*r,R.z+Math.sin(a)*r,1.5+rng()*2.5,.5,1.2+rng()*2,M.conc,rng()*.3,rng()*3,rng()*.3,-.15);}
+ const wx=R.x+15,wz=R.z+12;P(wx-2.6,wz,1.2,4.5,.5,M.conc);P(wx+2.6,wz,1.2,3.2,.5,M.conc);P(wx,wz,4,1.2,.5,M.conc);P(wx,wz,4,.8,.5,M.conc,0,0,0,3.4);
+ P(wx,wz,6.4,.25,.55,M.moss,0,0,0,4.2);for(let k=-2;k<=2;k++)colliders.push({x:wx+k*1.3,z:wz,r:.7});
+ const sx=R.x-20,sz=R.z-14,sy=groundAt(sx,sz);const sg=new THREE.Group();sg.position.set(sx,sy,sz);sg.rotation.y=.5;
+ sg.add(mk(G.box,M.rust2,-.9,1.4,0,.12,2.8,.12));sg.add(mk(G.box,M.rust2,.9,1.3,0,.12,2.6,.12,0,0,.08));sg.add(mk(G.box,M.signG,0,2.5,0,2.4,1,.08,0,0,.12));
+ const lbl=document.createElement("canvas");lbl.width=256;lbl.height=96;const cx=lbl.getContext("2d");cx.fillStyle="#2f5e44";cx.fillRect(0,0,256,96);
+ cx.fillStyle="rgba(230,225,205,.8)";cx.font="bold 40px sans-serif";cx.fillText("MONTR    L",18,48);cx.font="bold 30px sans-serif";cx.fillText("2  km",150,86);
+ cx.fillStyle="rgba(120,60,30,.7)";for(let k=0;k<40;k++){cx.beginPath();cx.arc(Math.random()*256,Math.random()*96,Math.random()*12,0,6.3);cx.fill();}
+ const lm=new THREE.Mesh(new THREE.PlaneGeometry(2.3,.9),new THREE.MeshPhongMaterial({map:new THREE.CanvasTexture(lbl)}));lm.position.set(0,2.5,.05);lm.rotation.z=.12;sg.add(lm);
+ scene.add(sg);add("panneau",sx,sz,1,{mesh:sg,lore:"Un panneau d'autoroute rongé par la rouille. On devine encore « MONTRÉAL » et un nombre de kilomètres. La ville a disparu sous la forêt."});
+ const car=(x,z,ry,pile)=>{const cg=new THREE.Group();const y=groundAt(x,z);cg.position.set(x,y,z);cg.rotation.y=ry;
+   if(pile){for(let k=0;k<6;k++)cg.add(mk(G.box,k%2?M.rust:M.rust2,(rng()-.5)*1.4,.2+k*.18,(rng()-.5)*1.2,1.6,.12,.25,rng()*.5,rng()*3,rng()*.5));}
+   else{cg.add(mk(G.box,M.rust,0,.55,0,3.8,.8,1.7,0,0,.04));cg.add(mk(G.box,M.rust2,-.2,1.2,0,2,.6,1.5));cg.add(mk(G.box,M.moss,-.2,1.53,0,1.8,.08,1.3));}
+   scene.add(cg);const o=add("ferraille",x,z,1,{mesh:cg});colliders.push({x,z,r:pile?1:1.6,o});};
+ car(R.x-4,R.z+8,.4);car(R.x+10,R.z+1,-1.1);car(R.x-15,R.z+15,2);car(R.x+18,R.z-12,0,true);car(R.x-22,R.z+2,0,true);
+ [[R.x-8,R.z+18,8],[R.x+3,R.z-16,9]].forEach(([x,z,i])=>statue(x,z,i%3,LORE[i]));
+}
+
+/* Vestiges */
+const vestMeshes=[];
+VEST.forEach((v,i)=>{let x=v.x,z=v.z;if(v.cave)[x,z]=caveW(v.cave[0],v.cave[1]);const y=groundAt(x,z);
+  const g=new THREE.Group();g.position.set(x,y,z);const it=new THREE.Mesh(new THREE.OctahedronGeometry(.18),M.gold);it.position.y=.45;g.add(it);
+  const bm=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,7,6,1,true),M.beam);bm.position.y=3.6;g.add(bm);scene.add(g);
+  vestMeshes.push(it);add("vestige",x,z,1,{mesh:g,vid:i});});
+
+/* ================= Bâtiments ================= */
+function makeBuilding(t){const g=new THREE.Group();const u={};
+  if(t==="feu"){for(let i=0;i<9;i++){const a=i/9*6.283;g.add(mk(G.pebble,M.stone,Math.cos(a)*.7,.12,Math.sin(a)*.7,1.7,1.4,1.7,0,a,0));}
+    for(let i=0;i<3;i++){const pv=new THREE.Group();pv.rotation.y=i*2.09;pv.add(mk(G.cyl,M.bark,.24,.32,0,.07,1,.07,0,0,.65));g.add(pv);}
+    u.f1=mk(new THREE.ConeGeometry(.3,.85,7),M.flame,0,.45,0);u.f2=mk(new THREE.ConeGeometry(.17,.5,6),M.flame2,0,.35,0);u.f1.castShadow=u.f2.castShadow=false;g.add(u.f1,u.f2);
+    u.light=new THREE.PointLight(0xff8a3a,1.6,16,1.5);u.light.position.y=1.2;g.add(u.light);}
+  if(t==="abri"){for(const s of[-1,1]){g.add(mk(G.box,M.bark,s*.78,1.05,0,1.95,.14,3,0,0,-s*.86));}
+    g.add(mk(G.cyl,M.bark,0,1.95,0,.11,3.4,.11,Math.PI/2));g.add(mk(G.box,M.paille,0,.06,0,2.2,.1,2.6));
+    g.add(mk(G.box,M.bark,0,.95,-1.45,.15,1.9,.15));}
+  if(t==="etabli"){g.add(mk(G.box,M.plank,0,.95,0,2.2,.14,1));for(const[a,b]of[[-1,-.4],[1,-.4],[-1,.4],[1,.4]])g.add(mk(G.box,M.bark,a,.45,b,.12,.9,.12));
+    g.add(mk(G.box,M.plank,0,.3,0,2,.08,.8));g.add(mk(G.pebble,M.stone,-.5,1.1,.1,1.4,1,1.4));g.add(mk(G.cyl,M.bark,.4,1.07,0,.04,.8,.04,0,.4,Math.PI/2));}
+  if(t==="potager"){g.add(mk(G.box,M.soil,0,.12,0,2.4,.24,1.6));
+    for(const s of[-1,1]){g.add(mk(G.cyl,M.bark,0,.18,s*.85,.1,2.6,.1,0,0,Math.PI/2));g.add(mk(G.cyl,M.bark,s*1.25,.18,0,.1,1.7,.1,Math.PI/2));}
+    u.sm=phong(0x6fa040);u.sprouts=[];for(let i=0;i<4;i++)for(let j=0;j<3;j++){const m=mk(new THREE.ConeGeometry(.12,.7,5),u.sm,-.85+i*.57,.24,-.5+j*.5);m.scale.setScalar(.001);g.add(m);u.sprouts.push(m);}}
+  if(t==="four"){g.add(mk(new THREE.CylinderGeometry(1.3,1.4,.4,10),M.stone,0,.2,0));g.add(mk(new THREE.SphereGeometry(1.15,10,7,0,6.283,0,Math.PI/2),M.clay,0,.4,0));
+    g.add(mk(G.box,M.dark,0,.75,1.02,.75,.6,.3));u.glow=mk(G.box,M.glow,0,.55,1.05,.55,.15,.2);g.add(u.glow);g.add(mk(new THREE.CylinderGeometry(.14,.2,.9,8),M.clay,0,1.65,-.3));
+    u.light=new THREE.PointLight(0xff6a2a,.7,7,2);u.light.position.set(0,.8,1.6);g.add(u.light);}
+  if(t==="jarre"){g.add(mk(new THREE.SphereGeometry(.6,10,8),M.clay,0,.62,0,1,1.15,1));g.add(mk(new THREE.CylinderGeometry(.26,.34,.35,10),M.clay,0,1.35,0));
+    g.add(mk(new THREE.CylinderGeometry(.3,.3,.08,10),M.plank,0,1.55,0));g.add(mk(new THREE.SphereGeometry(.3,8,6),M.clayF,.75,.3,.2,1,1.1,1));g.add(mk(new THREE.SphereGeometry(.25,8,6),M.clay,-.6,.26,.45));}
+  if(t==="fourneau"){g.add(mk(new THREE.CylinderGeometry(.55,1,2.8,10),M.clay,0,1.4,0));g.add(mk(new THREE.CylinderGeometry(.42,.42,.1,10),M.dark,0,2.82,0));
+    for(let i=0;i<10;i++){const a=i/10*6.283;g.add(mk(G.pebble,M.stone,Math.cos(a)*1.1,.15,Math.sin(a)*1.1,2,1.5,2,0,a,0));}
+    g.add(mk(G.cyl,M.clay,.95,.45,0,.12,.7,.12,0,0,Math.PI/2+.3));u.glow=mk(G.box,M.glow,0,.35,.93,.4,.3,.12);g.add(u.glow);
+    u.light=new THREE.PointLight(0xff5a1a,.8,8,2);u.light.position.set(0,.6,1.5);g.add(u.light);}
+  if(t==="forge"){g.add(mk(G.box,M.stone,-.9,.45,0,1.6,.9,1.2));u.glow=mk(G.box,M.glow,-.9,.92,0,1.2,.08,.8);g.add(u.glow);
+    g.add(mk(new THREE.CylinderGeometry(.35,.42,.6,8),M.bark,.9,.3,0));g.add(mk(G.box,M.iron,.9,.72,0,.9,.25,.35));g.add(mk(new THREE.ConeGeometry(.12,.45,6),M.iron,1.45,.75,0,1,1,1,0,0,-Math.PI/2));
+    g.add(mk(G.box,M.iron,.8,.95,.1,.22,.12,.12));g.add(mk(G.cyl,M.bark,.8,.9,.35,.03,.5,.03,Math.PI/2));
+    u.light=new THREE.PointLight(0xff5a1a,.7,7,2);u.light.position.set(-.9,1.4,0);g.add(u.light);}
+  if(t==="labo"){g.add(mk(G.box,M.plank,0,.95,0,2.4,.14,1.1));for(const[a,b]of[[-1.1,-.45],[1.1,-.45],[-1.1,.45],[1.1,.45]])g.add(mk(G.box,M.bark,a,.45,b,.12,.9,.12));
+    g.add(mk(G.box,M.stone,-.7,1.17,0,.6,.3,.6));u.glow=mk(G.box,M.glow,-.7,1.34,0,.3,.05,.3);g.add(u.glow);
+    g.add(mk(new THREE.SphereGeometry(.26,10,8),M.copper,-.7,1.55,0));g.add(mk(new THREE.CylinderGeometry(.06,.1,.35,8),M.copper,-.7,1.88,0));
+    beam(g,new THREE.Vector3(-.7,2.02,0),new THREE.Vector3(.4,1.5,0),.03,M.copper);
+    g.add(mk(new THREE.SphereGeometry(.2,10,8),M.glass,.45,1.24,0));g.add(mk(new THREE.CylinderGeometry(.05,.05,.25,8),M.glass,.45,1.48,0));
+    g.add(mk(new THREE.CylinderGeometry(.08,.08,.3,8),M.glass,.9,1.17,.25));g.add(mk(new THREE.CylinderGeometry(.08,.08,.24,8),M.glass,.9,1.14,-.2));
+    u.light=new THREE.PointLight(0xff7a2a,.5,5,2);u.light.position.set(-.7,1.5,.5);g.add(u.light);}
+  if(t==="roue"){for(const s of[-1,1]){g.add(mk(G.box,M.bark,s*.75,0,0,.2,5.6,.2));g.add(mk(G.box,M.bark,s*.75,0,.8,.15,5.2,.15,.18));}
+    g.add(mk(G.cyl,M.iron,0,1.1,0,.09,2.2,.09,0,0,Math.PI/2));
+    const w=new THREE.Group();w.position.y=1.1;w.add(mk(G.ring,M.plank,.3,0,0,2.4,2.4,4,0,Math.PI/2,0));w.add(mk(G.ring,M.plank,-.3,0,0,2.4,2.4,4,0,Math.PI/2,0));
+    for(let k=0;k<10;k++){const a=k/10*6.283;w.add(mk(G.box,M.plank,0,Math.cos(a)*1.6,Math.sin(a)*1.6,.75,.06,.5,-a));w.add(mk(G.box,M.bark,0,Math.cos(a)*.8,Math.sin(a)*.8,.08,.06,1.6,-a+Math.PI/2));}
+    g.add(w);u.wheel=w;g.add(mk(G.box,M.plank,1.6,2.2,0,1,1,1));g.add(mk(G.cyl,M.copper,1.6,2.2,.55,.3,.2,.3,Math.PI/2));
+    beam(g,new THREE.Vector3(1.6,2.7,0),new THREE.Vector3(1.6,3.4,0),.02,M.copper);}
+  if(t==="lampadaire"){g.add(mk(G.cyl,M.bark,0,1.6,0,.09,3.2,.09));g.add(mk(G.box,M.iron,.35,3.15,0,.8,.07,.07));
+    u.bm=new THREE.MeshBasicMaterial({color:0x6a6a60});g.add(mk(new THREE.SphereGeometry(.18,10,8),M.glass,.7,2.98,0));g.add(mk(new THREE.SphereGeometry(.07,6,5),u.bm,.7,2.98,0));
+    u.light=new THREE.PointLight(0xffd59a,0,22,1.4);u.light.position.set(.7,2.85,0);g.add(u.light);}
+  if(t==="mur_bois"){for(let i=0;i<6;i++){const x=-1+i*.4;g.add(mk(G.cyl,M.bark,x,1.15,0,.17,2.3,.17));g.add(mk(new THREE.ConeGeometry(.17,.4,8),M.bark,x,2.5,0));}
+    g.add(mk(G.box,M.plank,0,1.6,.18,2.4,.12,.06));g.add(mk(G.box,M.plank,0,.7,.18,2.4,.12,.06));}
+  if(t==="mur_pierre"){for(let r=0;r<3;r++)for(let i=0;i<4;i++){g.add(mk(G.box,r%2?M.stone2:M.stone,-.9+i*.6+(r%2?.3:0)-(r%2&&i===3?.3:0),.18+r*.36,0,.55,.34,.55,0,(rng()-.5)*.15,0));}}
+  if(t==="radio"){const top=12,b=1.5,a=.28;const L=[[-1,-1],[1,-1],[1,1],[-1,1]];
+    L.forEach(([x,z])=>beam(g,new THREE.Vector3(x*b,0,z*b),new THREE.Vector3(x*a,top,z*a),.07,M.iron));
+    for(const h of[3,6,9]){const w=b+(a-b)*h/top;for(let k=0;k<4;k++){const[p,q]=[L[k],L[(k+1)%4]];beam(g,new THREE.Vector3(p[0]*w,h,p[1]*w),new THREE.Vector3(q[0]*w,h,q[1]*w),.05,M.iron);}}
+    for(let k=0;k<4;k++){const[p,q]=[L[k],L[(k+1)%4]];const w0=b+(a-b)*3/top,w1=b+(a-b)*6/top;beam(g,new THREE.Vector3(p[0]*w0,3,p[1]*w0),new THREE.Vector3(q[0]*w1,6,q[1]*w1),.035,M.copper);}
+    beam(g,new THREE.Vector3(0,top,0),new THREE.Vector3(0,top+3,0),.04,M.copper);u.blink=mk(new THREE.SphereGeometry(.14,8,6),M.red,0,top+3.1,0);g.add(u.blink);
+    g.add(mk(G.box,M.plank,2.4,.45,0,1,.9,.8));g.add(mk(G.cyl,M.copper,2.4,.55,.42,.22,.12,.22,Math.PI/2));g.add(mk(G.box,M.iron,2.4,.55,.55,.06,.5,.06));
+    beam(g,new THREE.Vector3(2.4,.9,0),new THREE.Vector3(b*.8,2.5,0),.025,M.copper);}
+  g.userData=u;return g;}
+const ghostMat=new THREE.MeshBasicMaterial({color:0x86ad5f,transparent:true,opacity:.45,depthWrite:false});
+const builds=[];
+function wallCols(x,z,r){const out=[];for(const k of[-.8,0,.8])out.push({x:x+Math.cos(r)*k,z:z-Math.sin(r)*k,r:.45});return out;}
+const bY=(t,x,z)=>t==="roue"?-.05:groundAt(x,z);
+function placeBuild(b){const g=makeBuilding(b.t);g.position.set(b.x,bY(b.t,b.x,b.z),b.z);g.rotation.y=b.r;scene.add(g);
+  Object.defineProperty(b,"g",{value:g,enumerable:false,writable:true,configurable:true});
+  if(b.t!=="roue"){const cols=B[b.t].wall?wallCols(b.x,b.z,b.r):[{x:b.x,z:b.z,r:b.t==="feu"?.55:b.t==="lampadaire"?.25:B[b.t].r}];cols.forEach(c=>{c.b=true;colliders.push(c);});}
+  builds.push(b);}
+
+/* ================= Animaux et personnes ================= */
+function makeHare(){const g=new THREE.Group();const f=M.hare;
+  g.add(mk(new THREE.SphereGeometry(.22,8,6),f,0,.25,0,1,.85,1.4));g.add(mk(new THREE.SphereGeometry(.13,8,6),f,0,.38,.3));
+  g.add(mk(G.box,f,-.05,.58,.27,.04,.24,.07,-.25));g.add(mk(G.box,f,.05,.58,.27,.04,.24,.07,-.25));g.add(mk(new THREE.SphereGeometry(.07,6,4),M.shell,0,.3,-.32));return g;}
+function makeWolf(){const g=new THREE.Group();const f=M.wolf;
+  g.add(mk(G.box,f,0,.78,0,.5,.5,1.2));g.add(mk(G.box,f,0,.98,.72,.38,.38,.42));g.add(mk(G.box,f,0,.9,1.0,.2,.18,.3));
+  g.add(mk(new THREE.ConeGeometry(.07,.2,4),f,-.12,1.25,.66));g.add(mk(new THREE.ConeGeometry(.07,.2,4),f,.12,1.25,.66));
+  for(const[a,b]of[[-.17,-.42],[.17,-.42],[-.17,.42],[.17,.42]])g.add(mk(G.box,f,a,.3,b,.13,.6,.13));
+  g.add(mk(G.box,f,0,.85,-.78,.12,.12,.55,.6));
+  g.add(mk(new THREE.SphereGeometry(.04,6,4),M.eye,-.1,1.05,.94));g.add(mk(new THREE.SphereGeometry(.04,6,4),M.eye,.1,1.05,.94));return g;}
+function makePerson(i){const g=new THREE.Group();
+  const sk=phong([0xf1c6a0,0xd9a47a,0x8d5a3b,0xe8b890,0x6b4228,0xc68e60][i%6]),hr=phong([0x2a1a10,0x6b3a1a,0xd9b060,0x151515,0x9a9a9a,0x4a2a12][(i*5)%6]),cl=phong([0xa58a5a,0x7a5a3a,0x8a6f4a,0x6f7a52][i%4]);
+  g.add(mk(G.box,M.bark,-.12,.42,0,.15,.84,.17));g.add(mk(G.box,M.bark,.12,.42,0,.15,.84,.17));
+  g.add(mk(G.box,cl,0,1.12,0,.48,.62,.26));g.add(mk(G.box,cl,-.32,1.1,0,.13,.6,.14));g.add(mk(G.box,cl,.32,1.1,0,.13,.6,.14));
+  g.add(mk(new THREE.SphereGeometry(.16,10,8),sk,0,1.6,0));g.add(mk(new THREE.SphereGeometry(.17,10,8,0,6.283,0,1.4),hr,0,1.64,-.01));return g;}
+const animals=[],npcs=[];
+function landSpot(minH=1,maxH=14){for(let k=0;k<60;k++){const x=(Math.random()*2-1)*(HALF-45),z=(Math.random()*2-1)*(HALF-45),h=groundAt(x,z);
+  if(h>minH&&h<maxH&&dCave(x,z)>20&&forest(x,z)<.58)return[x,z];}return[SPAWN.x+20,SPAWN.z+20];}
+function spawnHare(){const[x,z]=landSpot();const g=makeHare();scene.add(g);animals.push({animal:true,type:"lievre",nom:"Lièvre",g,x,z,hp:1,hpMax:1,dir:Math.random()*6.28,t:0,flee:0,moving:false});}
+function spawnWolf(){for(let k=0;k<20;k++){const a=Math.random()*6.283,x=P.x+Math.cos(a)*38,z=P.z+Math.sin(a)*38;
+  if(groundAt(x,z)<.5||Math.abs(x)>HALF-20||Math.abs(z)>HALF-20||repelAt(x,z,16))continue;
+  const g=makeWolf();scene.add(g);animals.push({animal:true,type:"loup",nom:"Loup",g,x,z,hp:3,hpMax:3,dir:0,cd:0});howl();return;}}
+function repelAt(x,z,r){const lit=isNight();return builds.some(b=>(b.t==="feu"||(b.t==="lampadaire"&&lit&&power()))&&Math.hypot(b.x-x,b.z-z)<r);}
+const power=()=>builds.some(b=>b.t==="roue");
+let nightNow=false;const isNight=()=>nightNow;
+function campPos(){const f=S.builds.find(b=>b.t==="feu")||S.builds.find(b=>b.t==="abri");return f?{x:f.x,z:f.z}:{x:SPAWN.x+3,z:SPAWN.z+3};}
+function slotPos(i){const c=campPos();const a=i*2.4+.3,r=5+(i%3)*1.5;return{x:c.x+Math.cos(a)*r,z:c.z+Math.sin(a)*r};}
+function spawnNPC(idx,x,z){const g=makePerson(idx);g.position.set(x,groundAt(x,z),z);scene.add(g);const n={npc:true,idx,p:PEOPLE[idx],g,x,z,acc:0};npcs.push(n);return n;}
+
+/* ================= Joueur et contrôles ================= */
+const P={x:SPAWN.x,y:5,z:SPAWN.z,vy:0,ground:true};let yaw=.6,pitch=0;
+const keys={};let locked=false,playing=false,uiOpen=null,fallback=false;
+let joy={id:null,x0:0,y0:0,dx:0,dy:0},look={id:null,x:0,y:0};
+let buildSel=null,ghost=null,ghostRot=0,ghostOk=false,target=null,hitCd=0,torchOn=false;
+
+const held=new THREE.Group();held.position.set(.42,-.42,-.75);camera.add(held);
+function toolMesh(kind,iron){const g=new THREE.Group();const hm=iron?M.iron:M.stone;
+  if(kind==="lance"){g.add(mk(G.cyl,M.bark,0,.2,0,.025,1.2,.025));g.add(mk(new THREE.ConeGeometry(.05,.22,5),M.stone,0,.9,0));}
+  else if(kind==="canne"){g.add(mk(G.cyl,M.bark,0,.4,0,.02,1.4,.02));g.add(mk(new THREE.SphereGeometry(.04,6,4),M.red,0,1.1,0));}
+  else{g.add(mk(G.cyl,M.bark,0,0,0,.035,.62,.035));
+    if(kind==="hache")g.add(mk(G.box,hm,.07,.25,0,.17,.14,.05));
+    if(kind==="pioche")g.add(mk(G.box,hm,0,.28,0,.42,.07,.07));
+    if(kind==="torche"){g.add(mk(G.cyl,M.paille,0,.33,0,.06,.12,.06));g.add(mk(new THREE.ConeGeometry(.07,.2,6),M.flame,0,.47,0));}}
+  g.traverse(m=>{m.castShadow=false;});g.rotation.set(-.35,0,.15);return g;}
+let heldKind=null;function showHeld(kind){const iron=(kind==="hache"&&S.tools.hache_fer)||(kind==="pioche"&&S.tools.pioche_fer);const key=kind+(iron?"f":"");if(heldKind===key)return;heldKind=key;held.clear();if(kind)held.add(toolMesh(kind,iron));}
+const leftHeld=new THREE.Group();leftHeld.position.set(-.45,-.45,-.7);camera.add(leftHeld);leftHeld.add(toolMesh("torche"));leftHeld.visible=false;
+let swingT=0;
+
+const TOG={Tab:"sac",KeyM:"carte",KeyJ:"carnet",KeyY:"religion"};
+addEventListener("keydown",e=>{
+  if(!S||!S.started||!$("intro").hidden)return;
+  if(TOG[e.code]&&$("pause").hidden&&$("endScreen").hidden){e.preventDefault();switchUI(TOG[e.code]);return;}
+  if(uiOpen){if(e.code==="Escape"||(e.code==="KeyB"&&uiOpen==="build"))closeUI();return;}
+  keys[e.code]=true;
+  if(!playing)return;
+  if(e.code==="KeyE")action();
+  if(e.code==="KeyB"){if(buildSel)cancelBuild();openUI("build");}
+  if(e.code==="KeyF")eat();
+  if(e.code==="KeyT")toggleTorch();
+  if(e.code==="KeyR"&&buildSel)ghostRot+=Math.PI/4;
+  if(e.code==="KeyX"&&buildSel)cancelBuild();
+  if(e.code==="Space"&&P.ground){P.vy=6.2;P.ground=false;e.preventDefault();}
+});
+addEventListener("keyup",e=>{keys[e.code]=false;});
+addEventListener("blur",()=>{for(const k in keys)keys[k]=false;});
+let drag=null;
+canvas.addEventListener("mousedown",e=>{if(!S||!S.started||isTouch||!playing)return;
+  if(locked||fallback){if(e.button===0){if(fallback)drag={x:e.clientX,y:e.clientY,moved:false};else action();}if(e.button===2&&buildSel)cancelBuild();}});
+addEventListener("mouseup",()=>{if(drag&&!drag.moved&&playing)action();drag=null;});
+canvas.addEventListener("contextmenu",e=>e.preventDefault());
+addEventListener("mousemove",e=>{if(!playing)return;
+  if(locked){yaw-=e.movementX*.0022;pitch-=e.movementY*.0022;}
+  else if(fallback&&drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>3)drag.moved=true;yaw-=dx*.005;pitch-=dy*.005;drag.x=e.clientX;drag.y=e.clientY;}
+  pitch=Math.max(-1.45,Math.min(1.45,pitch));});
+document.addEventListener("pointerlockchange",()=>{locked=document.pointerLockElement===canvas;
+  if(!locked&&playing&&!uiOpen&&!fallback)pause();});
+document.addEventListener("pointerlockerror",()=>{fallback=true;});
+function requestLock(){if(isTouch){fallback=true;return;}try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(()=>{fallback=true;});}catch(e){fallback=true;}}
+
+/* Tactile */
+canvas.addEventListener("touchstart",e=>{if(!playing)return;e.preventDefault();for(const t of e.changedTouches){
+  if(t.clientX<innerWidth*.45&&joy.id===null){joy={id:t.identifier,x0:t.clientX,y0:t.clientY,dx:0,dy:0};}
+  else if(look.id===null){look={id:t.identifier,x:t.clientX,y:t.clientY,sx:t.clientX,sy:t.clientY,t:performance.now()};}}},{passive:false});
+canvas.addEventListener("touchmove",e=>{e.preventDefault();for(const t of e.changedTouches){
+  if(t.identifier===joy.id){joy.dx=Math.max(-1,Math.min(1,(t.clientX-joy.x0)/50));joy.dy=Math.max(-1,Math.min(1,(t.clientY-joy.y0)/50));$("joyKnob").style.transform=`translate(${joy.dx*36}px,${joy.dy*36}px)`;}
+  if(t.identifier===look.id){yaw-=(t.clientX-look.x)*.006;pitch-=(t.clientY-look.y)*.006;pitch=Math.max(-1.45,Math.min(1.45,pitch));look.x=t.clientX;look.y=t.clientY;}}},{passive:false});
+canvas.addEventListener("touchend",e=>{for(const t of e.changedTouches){if(t.identifier===joy.id){joy={id:null,dx:0,dy:0};$("joyKnob").style.transform="";}
+  if(t.identifier===look.id){if(Math.hypot(t.clientX-look.sx,t.clientY-look.sy)<8&&performance.now()-look.t<250)action();look={id:null};}}});
+const tb=(id,f,any)=>$(id).addEventListener("touchstart",e=>{e.preventDefault();if(playing||any)f();},{passive:false});
+tb("tAct",()=>action());tb("tJump",()=>{if(P.ground){P.vy=6.2;P.ground=false;}});
+tb("tSac",()=>switchUI("sac"),1);tb("tMap",()=>switchUI("carte"),1);tb("tCarnet",()=>switchUI("carnet"),1);tb("tReligion",()=>switchUI("religion"),1);
+tb("tBuild",()=>{if(buildSel)cancelBuild();openUI("build");},1);tb("tEat",eat);tb("tTorch",toggleTorch);
+tb("tRot",()=>ghostRot+=Math.PI/4);tb("tCancel",cancelBuild);
+
+/* ================= Interactions ================= */
+const rnd=([a,b])=>a+Math.floor(Math.random()*(b-a+1));
+function give(k,n,silent){if(n<=0)return;if(TOOLS[k]){S.tools[k]=true;}else{S.inv[k]=(S.inv[k]||0)+n;S.got[k]=(S.got[k]||0)+n;}if(!silent)toast(`+${n} ${ITEMS[k]||TOOLS[k]}`);}
+function canPay(c){return Object.entries(c).every(([k,v])=>(S.inv[k]||0)>=v);}
+function pay(c){for(const[k,v]of Object.entries(c))S.inv[k]-=v;}
+
+function findTarget(){
+  const fx=-Math.sin(yaw)*Math.cos(pitch),fy=Math.sin(pitch),fz=-Math.cos(yaw)*Math.cos(pitch);
+  const cx=camera.position.x,cy=camera.position.y,cz=camera.position.z;let best=null,bs=1e9;
+  const test=(x,y,z,reach,ref)=>{const dx=x-cx,dy=y-cy,dz=z-cz,d=Math.hypot(dx,dy,dz);if(d>reach)return;const dot=(dx*fx+dy*fy+dz*fz)/d;
+    if(dot<.86)return;const sc=d*(1+(1-dot)*8);if(sc<bs){bs=sc;best=ref;}};
+  for(const o of objs){if(o.dead)continue;if(Math.abs(o.x-cx)>8||Math.abs(o.z-cz)>8)continue;
+    const yy=o.kind==="arbre"?o.y+1.3:o.kind==="statue"||o.kind==="panneau"?o.y+1.2:o.kind==="ferraille"?o.y+.6:o.y+.35*o.s;
+    const reach=o.kind==="poisson"?6:(o.kind==="arbre"||o.kind==="rocher"||o.kind==="ferraille"?4.4:3.6)+(o.s-1);
+    test(o.x,yy,o.z,reach,o);}
+  for(const a of animals)test(a.x,groundAt(a.x,a.z)+(a.type==="loup"?.8:.3),a.z,S.tools.lance?4.4:3.4,a);
+  for(const n of npcs)test(n.x,groundAt(n.x,n.z)+1.2,n.z,3.8,n);
+  for(const b of builds){if(Math.abs(b.x-cx)>10||Math.abs(b.z-cz)>10)continue;test(b.x,bY(b.t,b.x,b.z)+.8,b.z,(B[b.t].r||1)+3.5,b);}
+  return best;}
+function stationNear(st){if(st===null)return true;return builds.some(b=>b.t===st&&Math.hypot(b.x-P.x,b.z-P.z)<6.5);}
+const STATIONS=["feu","etabli","four","jarre","fourneau","forge","labo"];
+
+function action(){
+  if(buildSel){placeGhost();return;}
+  if(hitCd>0)return;const o=target;if(!o)return;
+  if(o.npc){talk(o);hitCd=.4;return;}
+  if(o.animal){hitAnimal(o);return;}
+  if(o.t){useBuilding(o);hitCd=.3;return;}
+  const K=KINDS[o.kind];
+  if(o.kind==="statue"){if(!o.self&&(S.inv.fluide||0)>0)revive(o);else panel("Statue d'ambre","Observation",o.lore+(o.self?"":(sciCount()>8&&!built("labo")?" Il doit exister un moyen chimique de dissoudre cette résine…":"")),"",7,"talk");hitCd=.4;return;}
+  if(o.kind==="panneau"){panel("Ruines","Vieux panneau",o.lore,"",7,"talk");hitCd=.4;return;}
+  if(o.kind==="vestige"){const v=VEST[o.vid];o.dead=true;setVis(o,false);S.dead[o.id]=-1;S.stats.vestiges[o.vid]=1;
+    panel(`Vestige ${Object.keys(S.stats.vestiges).length}/10`,v.n,v.t,"",8,"talk");sound(660,.3);save();return;}
+  if(K.dark&&!torchOn&&caveFactor(P.x,P.z)>.3){toast("Trop sombre. Allume ta torche [T].","warn");hitCd=.5;return;}
+  let dmg=1;
+  if(K.outil){const iron=S.tools[K.outil+"_fer"],stone=S.tools[K.outil];
+    if(!iron&&!stone){toast(`${TOOLNEED[K.outil]}. Ouvre ton sac [Tab].`,"warn");hitCd=.5;return;}
+    dmg=iron?2:1;showHeld(K.outil);}
+  else showHeld(null);
+  swingT=.32;hitCd=K.outil==="canne"?.6:.36;o.hp-=dmg;burst(o.x,o.kind==="arbre"?o.y+1.2:o.y+.4,o.z,K.col);sound(K.outil==="canne"?520:K.outil?110:260,.08);
+  if(o.hp<=0){for(const[k,r]of Object.entries(K.gain))give(k,rnd(r));
+    o.dead=true;o.hp=K.hp||1;S.dead[o.id]=K.respawn>0?S.clock+K.respawn:-1;setVis(o,false,K.keep);
+    if(o.kind==="salpetre")science("salpetre");
+    checkObj();}
+}
+function useBuilding(b){
+  if(b.t==="abri"){const h=S.time*24;if(h>=19||h<5.5){S.time=6.5/24;if(h>=19)S.day++;S.sante=Math.min(100,S.sante+35);S.faim=Math.max(10,S.faim-15);
+      for(let i=animals.length-1;i>=0;i--)if(animals[i].type==="loup"){scene.remove(animals[i].g);animals.splice(i,1);}toast("Tu dors jusqu'à l'aube.");save();}
+    else toast("Il fait encore jour. Reviens dormir le soir.","warn");return;}
+  if(b.t==="potager"){if(!b.plant){if((S.inv.graines||0)>=2){S.inv.graines-=2;b.plant=S.clock+150;S.stats.planted++;toast("Graines semées. Reviens dans quelques heures.");science("potager");sound(300,.1);checkObj();save();}
+      else toast("Il faut 2 graines. Arrache des herbes hautes.","warn");}
+    else if(S.clock>=b.plant){give("ble",4);give("graines",2);b.plant=0;S.stats.recoltes++;sound(500,.12);save();}
+    else toast(`Le blé pousse… ${Math.round((1-(b.plant-S.clock)/150)*100)} %`);return;}
+  if(b.t==="radio"){openUI("endScreen");return;}
+  if(STATIONS.includes(b.t)){openUI("sac");return;}
+}
+function hitAnimal(a){showHeld(S.tools.lance?"lance":null);swingT=.32;hitCd=.4;const dmg=S.tools.lance?2:1;a.hp-=dmg;
+  burst(a.x,groundAt(a.x,a.z)+.5,a.z,0xa02020);sound(180,.08);
+  const dx=a.x-P.x,dz=a.z-P.z,d=Math.hypot(dx,dz)||1;a.x+=dx/d*.9;a.z+=dz/d*.9;if(a.type==="lievre")a.flee=3;
+  if(a.hp<=0){scene.remove(a.g);animals.splice(animals.indexOf(a),1);
+    if(a.type==="lievre"){give("viande",1);give("peau",1);S.stats.lievres++;setTimeout(spawnHare,90000);}
+    else{give("viande",2);give("peau",2);S.stats.loups++;toast("Loup vaincu !","gold");}
+    checkObj();}}
+function revive(o){S.inv.fluide--;const idx=Object.keys(S.revived).length%PEOPLE.length;S.revived[o.id]=idx;o.dead=true;
+  for(let k=0;k<3;k++)burst(o.x,o.y+.6+k*.5,o.z,0xf0b250);o.mesh.visible=false;sound(400,.4);setTimeout(()=>sound(600,.4),200);
+  const n=spawnNPC(idx,o.x,o.z);const p=PEOPLE[idx];
+  panel("Réveil",`${p.n} · ${p.r}`,`« ${p.l} » ${p.n.split(" ")[0]} va s'installer à ton camp et travailler pour toi. Reviens lui parler pour récupérer sa production.`,"",11,"talk");
+  checkObj();save();}
+function talk(n){const k=S.npcStock[n.idx]||0;const p=n.p;
+  if(k>0){for(const[it,v]of Object.entries(p.g))give(it,v*k);S.npcStock[n.idx]=0;sound(520,.12);toast(`${p.n.split(" ")[0]} te remet sa production.`,"gold");save();}
+  else panel(p.r,p.n,["Je travaille. Reviens un peu plus tard.","On avance bien, tu ne trouves pas ?","Trois mille ans… Je n'arrive toujours pas à y croire.","Tu devrais réveiller les autres. On sera plus forts ensemble.","La nuit, les loups rôdent. Garde le feu allumé."][Math.floor(Math.random()*5)],"",5,"talk");}
+function eat(){const k=Object.keys(FOOD).find(f=>(S.inv[f]||0)>0);if(!k){toast("Tu n'as rien à manger. Cueille des bleuets ou cuis du poisson.","warn");return;}
+  if(S.faim>=99){toast("Tu n'as pas faim.");return;}S.inv[k]--;S.faim=Math.min(100,S.faim+FOOD[k]);toast(`Miam : ${ITEMS[k].toLowerCase()}. +${FOOD[k]} faim`);}
+function toggleTorch(){if(!S.tools.torche){toast("Fabrique d'abord une torche (près d'un feu).","warn");return;}torchOn=!torchOn;leftHeld.visible=torchOn;}
+
+/* Particules */
+const parts=[];const pGeo=new THREE.BoxGeometry(.09,.09,.09);
+function burst(x,y,z,col){const mat=new THREE.MeshBasicMaterial({color:col});
+  for(let i=0;i<7;i++){const m=new THREE.Mesh(pGeo,mat);m.position.set(x+(Math.random()-.5)*.6,y,z+(Math.random()-.5)*.6);scene.add(m);
+    parts.push({m,v:new THREE.Vector3((Math.random()-.5)*3,2+Math.random()*2.5,(Math.random()-.5)*3),t:.8});}}
+/* Son */
+let actx=null;function ac(){actx=actx||new (window.AudioContext||window.webkitAudioContext)();return actx;}
+function sound(f,d){try{const a=ac(),o=a.createOscillator(),g=a.createGain();
+  o.type="triangle";o.frequency.value=f*(0.9+Math.random()*.2);g.gain.setValueAtTime(.12,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);
+  o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+d);}catch(e){}}
+function howl(){try{const a=ac(),o=a.createOscillator(),g=a.createGain(),t=a.currentTime;o.type="sine";o.frequency.setValueAtTime(320,t);o.frequency.linearRampToValueAtTime(560,t+.6);o.frequency.linearRampToValueAtTime(420,t+1.8);
+  g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.06,t+.4);g.gain.exponentialRampToValueAtTime(.001,t+2);o.connect(g).connect(a.destination);o.start();o.stop(t+2.1);}catch(e){}}
+
+/* ================= Construction ================= */
+function startBuild(t){buildSel=t;ghostRot=yaw;if(ghost)scene.remove(ghost);ghost=makeBuilding(t);
+  ghost.traverse(m=>{if(m.isMesh){m.material=ghostMat;m.castShadow=false;}if(m.isLight)m.intensity=0;});scene.add(ghost);
+  $("tRot").hidden=$("tCancel").hidden=false;}
+function cancelBuild(){buildSel=null;if(ghost){scene.remove(ghost);ghost=null;}$("tRot").hidden=$("tCancel").hidden=true;}
+let ghostWhy="";
+function updateGhost(){if(!ghost)return;const d=B[buildSel].r+3.2;const x=P.x-Math.sin(yaw)*d,z=P.z-Math.cos(yaw)*d;ghost.position.set(x,bY(buildSel,x,z),z);ghost.rotation.y=ghostRot;
+  let ok=Math.max(Math.abs(x),Math.abs(z))<HALF-30;ghostWhy="Emplacement impossible";
+  if(B[buildSel].water){if(dRi(x,z)>7||groundAt(x,z)>-.4){ok=false;ghostWhy="Place-la dans la rivière";}}
+  else if(groundAt(x,z)<=.35){ok=false;ghostWhy="Trop près de l'eau";}
+  const myR=B[buildSel].wall?1.15:B[buildSel].r;
+  if(ok)for(const c of colliders){if(c.o&&c.o.dead)continue;if(Math.hypot(c.x-x,c.z-z)<c.r+myR-.15){ok=false;break;}}
+  if(Math.hypot(P.x-x,P.z-z)<myR+.3)ok=false;
+  ghostOk=ok;ghostMat.color.setHex(ok&&canPay(B[buildSel].cout)?0x86ad5f:0xd0603a);}
+function placeGhost(){if(!ghostOk){toast(ghostWhy+".","warn");return;}const c=B[buildSel].cout;if(!canPay(c)){toast("Ressources insuffisantes.","warn");return;}
+  pay(c);const b={t:buildSel,x:ghost.position.x,z:ghost.position.z,r:ghostRot};S.builds.push(b);placeBuild(b);
+  toast(`${B[buildSel].nom} construit`);if(SCI[buildSel])science(buildSel);sound(180,.15);
+  if(buildSel==="radio")setTimeout(()=>{S.ended=true;openUI("endScreen");},1800);
+  const t=buildSel;if(!canPay(B[t].cout)||!B[t].wall)cancelBuild();checkObj();save();}
+
+/* ================= Interface ================= */
+function toast(t,cls){const d=document.createElement("div");d.className="toast"+(cls?" "+cls:"");d.textContent=t;const box=$("toasts");box.prepend(d);
+  while(box.children.length>5)box.lastChild.remove();setTimeout(()=>d.remove(),3600);}
+let sciT=0;
+function panel(lab,title,body,code,dur,cls){const el=$("sci");el.className="hud"+(cls?" "+cls:"");
+  el.innerHTML=`<div class="lab"></div><h4></h4><p></p>${code?"<code></code>":""}`;el.querySelector(".lab").textContent=lab;el.querySelector("h4").textContent=title;el.querySelector("p").textContent=body;if(code)el.querySelector("code").textContent=code;
+  el.hidden=false;el.style.animation="none";el.offsetHeight;el.style.animation="";sciT=dur;}
+function science(id){const s=SCI[id];if(!s||S.seen["sci_"+id])return;S.seen["sci_"+id]=1;panel("Science débloquée",s[0],s[1],s[2],11);}
+
+function costHTML(c){return Object.entries(c).map(([k,v])=>`<span class="${(S.inv[k]||0)>=v?"ok":"no"}">${ITEMS[k]} ${S.inv[k]||0}/${v}</span>`).join(" · ");}
+function renderSac(){
+  const inv=Object.entries(S.inv).filter(([k,v])=>v>0).map(([k,v])=>`<div class="it"><span class="n">${v}</span><span class="k">${ITEMS[k]}</span></div>`);
+  const tl=Object.keys(S.tools).map(k=>`<div class="it tool"><span class="n">✓</span><span class="k">${TOOLS[k]}</span></div>`);
+  $("invList").innerHTML=(tl.join("")+inv.join(""))||`<p style="color:var(--papier-2);margin:0">Ton sac est vide. Ramasse des branches et des cailloux autour de toi.</p>`;
+  const groups={};REC.forEach(r=>{(groups[r.st]=groups[r.st]||[]).push(r);});
+  $("recList").innerHTML="";
+  for(const st of[null,"feu","etabli","four","jarre","fourneau","forge","labo"]){if(!groups[st])continue;
+    const has=st===null||built(st),near=stationNear(st);
+    const gd=document.createElement("div");gd.className="group";
+    gd.innerHTML=`<div class="ghead"><span>${STN[st]}</span><span class="${near?"near":"far"}">${st===null?"partout":!has?"à construire":near?"à proximité":"trop loin"}</span></div>`;
+    groups[st].forEach(r=>{const d=document.createElement("div");d.className="rec";const done=r.tool&&S.tools[r.id];
+      const needOk=!r.needs||S.tools[r.needs];
+      d.innerHTML=`<div class="t">${r.nom}</div><div class="c">${costHTML(r.cout)}${r.needs?` · <span class="${needOk?"ok":"no"}">${TOOLS[r.needs]}</span>`:""}</div>`;
+      if(done){const s=document.createElement("span");s.className="done";s.textContent="fabriqué";d.appendChild(s);}
+      else{const b=document.createElement("button");b.textContent="Fabriquer";b.disabled=!(near&&canPay(r.cout)&&needOk);b.onclick=()=>craft(r);d.appendChild(b);}
+      gd.appendChild(d);});
+    $("recList").appendChild(gd);}
+}
+function craft(r){if(!stationNear(r.st)||!canPay(r.cout))return;pay(r.cout);
+  if(r.tool){give(r.id,1);if(r.id.startsWith("hache"))showHeld("hache");if(r.id.startsWith("pioche"))showHeld("pioche");}
+  else for(const[k,v]of Object.entries(r.out))give(k,v);
+  sound(420,.12);science(r.sci||r.id);if(r.id==="pain")science("pain");checkObj();renderSac();save();}
+function renderBuild(){$("bList").innerHTML="";for(const[t,b]of Object.entries(B)){const d=document.createElement("div");const lockd=b.req&&!built(b.req);d.className="bcard"+(lockd?" locked":"");
+  d.innerHTML=`<div class="t">${b.nom}</div><p>${lockd?`Nécessite d'abord : ${B[b.req].nom}`:b.desc}</p><div class="c" style="font-family:var(--f-mono);font-size:.7rem">${costHTML(b.cout)}</div>`;
+  const btn=document.createElement("button");btn.textContent="Placer";btn.disabled=lockd||!canPay(b.cout);btn.onclick=()=>{startBuild(t);closeUI();};d.appendChild(btn);$("bList").appendChild(d);}}
+function renderCarnet(){
+  $("defiList").innerHTML=DEFIS.map(([t,d,f,goal])=>{const v=Math.min(goal,f());const won=v>=goal;
+    return `<div class="defi${won?" won":""}"><span class="t">${t}</span><span class="d">${d}</span><span class="v">${won?"réussi":v+" / "+goal}</span><div class="pb"><i style="width:${v/goal*100}%"></i></div></div>`;}).join("");
+  const rv=Object.values(S.revived);
+  $("peopleList").innerHTML=rv.length?rv.map(i=>`<div class="person"><b>${PEOPLE[i].n}</b> · ${PEOPLE[i].r}${(S.npcStock[i]||0)>0?` · <span class="ok">production prête</span>`:""}</div>`).join(""):`<p style="margin:0;color:var(--papier-2);font-size:.85rem">Personne pour l'instant. Il existe peut-être une formule chimique pour dissoudre l'ambre…</p>`;
+  $("vestList").innerHTML=VEST.map((v,i)=>`<span class="chip${S.stats.vestiges[i]?" on":""}">${S.stats.vestiges[i]?v.n:"???"}</span>`).join("");
+  $("sciList").innerHTML=Object.entries(SCI).map(([k,s])=>`<span class="chip${S.seen["sci_"+k]?" on":""}">${S.seen["sci_"+k]?s[0]:"???"}</span>`).join("");}
+const BELIEFS={
+  none:{name:"Aucune tradition",desc:"Une communauté laïque : entraide et observation, sans croyance surnaturelle."},
+  ancestors:{name:"Mémoire des ancêtres",desc:"Honorer les personnes disparues et transmettre leurs savoirs."},
+  amber:{name:"Cycle de l’Ambre",desc:"Une croyance née de la résine qui a figé le monde et rendu possible le réveil."},
+  forest:{name:"Esprits de la forêt",desc:"Respecter les bois, les animaux, les rivières et les saisons."},
+  stars:{name:"Voie des étoiles",desc:"Chercher des repères dans le ciel et célébrer la curiosité scientifique."}
+};
+function renderReligion(){
+  if(!S.faith)S.faith={belief:"none",devotion:0,rites:0,lastDay:0};
+  const f=S.faith;
+  const options=Object.entries(BELIEFS).map(([id,b])=>`<option value="${id}" ${f.belief===id?"selected":""}>${b.name}</option>`).join("");
+  const stock=(k)=>S.inv[k]||0;
+  $("faithContent").innerHTML=`<div class="group"><div class="ghead"><span>Tradition de la communauté</span><span class="near">${f.devotion} points de ferveur</span></div>
+    <p>${BELIEFS[f.belief]?.desc||BELIEFS.none.desc}</p><label for="beliefSelect">Choisir une croyance</label><select id="beliefSelect" style="display:block;width:100%;max-width:460px;padding:10px;margin:8px 0;background:var(--pierre);color:var(--papier);border:1px solid var(--trait)">${options}</select><button id="beliefSave">Adopter cette tradition</button></div>
+    <div class="group"><div class="ghead"><span>Rites facultatifs</span><span>${f.rites} accomplis</span></div>
+      <div class="rec"><div class="t">Partage des récoltes</div><div class="c">Coût : 2 bleuets · en stock : ${stock("baies")}</div><p>Un repas collectif restaure la faim et renforce la cohésion.</p><button id="riteHarvest" ${stock("baies")<2||f.lastDay===S.day?"disabled":""}>Célébrer le partage</button></div>
+      <div class="rec"><div class="t">Veillée des ancêtres</div><div class="c">Coût : 2 bois · en stock : ${stock("bois")}</div><p>Une veillée calme : récupère un peu de santé et consigne la mémoire du groupe.</p><button id="riteMemory" ${stock("bois")<2||f.lastDay===S.day?"disabled":""}>Organiser la veillée</button></div>
+      <div class="rec"><div class="t">Cérémonie de la rivière</div><div class="c">Coût : 2 graines · en stock : ${stock("graines")}</div><p>Une cérémonie symbolique pour célébrer l’eau et les récoltes.</p><button id="riteRiver" ${stock("graines")<2||f.lastDay===S.day?"disabled":""}>Célébrer la rivière</button></div>
+      ${f.lastDay===S.day?'<p style="color:var(--ambre)">Tu as déjà organisé un rite aujourd’hui. Reviens le lendemain.</p>':'<p style="color:var(--papier-2)">Un seul rite par jour. Les effets sont modestes et n’imposent aucune croyance au joueur.</p>'}</div>`;
+  $("beliefSave").onclick=()=>{f.belief=$("beliefSelect").value;save();renderReligion();toast("Tradition communautaire mise à jour.","gold");};
+  const rite=(id,item,cost,fn)=>$(id).onclick=()=>{if(f.lastDay===S.day||stock(item)<cost)return;S.inv[item]-=cost;f.lastDay=S.day;f.rites++;f.devotion+=2;fn();save();renderReligion();toast("Rite accompli : la communauté se rassemble.","gold");};
+  rite("riteHarvest","baies",2,()=>{S.faim=Math.min(100,S.faim+22);});
+  rite("riteMemory","bois",2,()=>{S.sante=Math.min(100,S.sante+15);});
+  rite("riteRiver","graines",2,()=>{S.faim=Math.min(100,S.faim+10);S.sante=Math.min(100,S.sante+8);});
+}
+
+function openUI(id){uiOpen=id;if(id==="sac")renderSac();if(id==="build")renderBuild();if(id==="carnet")renderCarnet();if(id==="religion")renderReligion();$(id).hidden=false;if(id==="carte")drawMap();playing=false;if(document.pointerLockElement)document.exitPointerLock();}
+function closeUI(){if(!uiOpen)return;$(uiOpen).hidden=true;uiOpen=null;resume();}
+function switchUI(id){if(uiOpen===id){closeUI();return;}if(uiOpen){$(uiOpen).hidden=true;uiOpen=null;}if(buildSel)cancelBuild();openUI(id);}
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=closeUI);
+document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>switchUI(b.dataset.go));
+$("endContinue").onclick=closeUI;
+function pause(){playing=false;$("pause").hidden=false;$("confirmNew").hidden=true;save();}
+function resume(){$("pause").hidden=true;playing=true;requestLock();}
+$("resume").onclick=resume;$("newGame").onclick=()=>{$("confirmNew").hidden=false;};
+$("confirmYes").onclick=()=>{try{localStorage.removeItem(KEY);}catch(e){}location.reload();};
+
+function checkObj(silent){while(S.obj<OBJ.length&&OBJ[S.obj][1]()){S.obj++;if(S.obj<OBJ.length&&!silent)toast("Objectif atteint ✓","gold");}
+  $("objLab").textContent=S.obj<OBJ.length?`Objectif ${S.obj+1}/${OBJ.length}`:"Objectifs terminés";
+  $("objTxt").textContent=S.obj<OBJ.length?OBJ[S.obj][0]:"Le monde est à toi. Réveille tout le monde et termine les défis du carnet [J].";}
+function checkDefis(){DEFIS.forEach(([t,d,f,goal])=>{if(!S.defis[t]&&f()>=goal){S.defis[t]=1;toast(`Défi réussi : ${t}`,"gold");sound(780,.3);}});}
+
+function renderBar(){const parts=[];const t=S.tools;
+  if(t.hache||t.hache_fer)parts.push(`<span class="slot on">${t.hache_fer?"Hache de fer":"Hache"}</span>`);
+  if(t.pioche||t.pioche_fer)parts.push(`<span class="slot on">${t.pioche_fer?"Pioche de fer":"Pioche"}</span>`);
+  if(t.lance)parts.push(`<span class="slot on">Lance</span>`);if(t.canne)parts.push(`<span class="slot on">Canne</span>`);
+  if(t.torche)parts.push(`<span class="slot ${torchOn?"on":""}"><b>T</b>Torche</span>`);
+  const food=Object.keys(FOOD).reduce((s,k)=>s+(S.inv[k]||0),0);
+  parts.push(`<span class="slot"><b>F</b>Manger ${food}</span>`);
+  if((S.inv.fluide||0)>0)parts.push(`<span class="slot on">Fluide de réveil ${S.inv.fluide}</span>`);
+  parts.push(`<span class="slot"><b>Tab</b>Sac</span><span class="slot"><b>B</b>Bâtir</span><span class="slot"><b>M</b>Carte</span><span class="slot"><b>J</b>Carnet</span>`);
+  if(buildSel)parts.push(`<span class="slot on">${B[buildSel].nom} · <b>R</b>tourner <b>X</b>annuler</span>`);
+  const h=parts.join("");if($("bar").innerHTML!==h)$("bar").innerHTML=h;}
+
+const LM=[{n:"Collines",x:HILL.x,z:HILL.z},{n:"Ruines",x:RUINS.x,z:RUINS.z},{n:"Réveil",x:SPAWN.x,z:SPAWN.z},{n:"Grotte",x:CAVE.x,z:CAVE.z}];
+function renderCompass(){const w=$("compass").clientWidth||300,half=w/2,span=Math.PI/2.2;let h="";
+  const put=(a,txt,cls)=>{let rel=a-yaw;rel=Math.atan2(Math.sin(rel),Math.cos(rel));if(Math.abs(rel)>span)return;h+=`<span class="${cls}" style="left:${half-rel/span*half}px">${txt}</span>`;};
+  [["N",0],["NE",-Math.PI/4],["E",-Math.PI/2],["SE",-3*Math.PI/4],["S",Math.PI],["SO",3*Math.PI/4],["O",Math.PI/2],["NO",Math.PI/4]].forEach(([t,a])=>put(a,t,"card"));
+  const rx=riverX(P.z);[...LM,{n:"Rivière",x:rx,z:P.z},...builds.filter(b=>b.t==="feu").slice(0,1).map(b=>({n:"Camp",x:b.x,z:b.z}))].forEach(l=>{
+    const dx=l.x-P.x,dz=l.z-P.z,d=Math.hypot(dx,dz);if(d<10)return;put(Math.atan2(-dx,-dz),`▾ ${l.n} ${Math.round(d)} m`,"lm");});
+  $("compass").innerHTML=h;}
+
+function renderPrompt(){const o=target;let h="";const K_=isTouch?"Action":"E";
+  if(buildSel){const c=B[buildSel].cout;h=ghostOk?(canPay(c)?`<b>${K_}</b>Poser · ${B[buildSel].nom}`:`<small>Ressources insuffisantes</small>`):`<small>${ghostWhy}</small>`;}
+  else if(o){
+    if(o.npc){const k=S.npcStock[o.idx]||0;h=`<b>${K_}</b>Parler · ${o.p.n}<small>${o.p.r}${k?` · ${k} lot${k>1?"s":""} prêt${k>1?"s":""}`:""}</small>`;}
+    else if(o.animal){h=`<b>${K_}</b>Frapper · ${o.nom}${S.tools.lance?"":"<small>Une lance frappe deux fois plus fort</small>"}`;if(o.hpMax>1)h+=`<div class="hpbar"><i style="width:${o.hp/o.hpMax*100}%"></i></div>`;}
+    else if(o.t){let v="";if(o.t==="abri")v="Dormir";else if(o.t==="radio")v="Écouter la radio";else if(STATIONS.includes(o.t))v="Fabriquer ici";
+      else if(o.t==="potager")v=!o.plant?"Semer 2 graines":S.clock>=o.plant?"Récolter le blé":`Ça pousse · ${Math.round((1-(o.plant-S.clock)/150)*100)} %`;
+      if(v)h=`<b>${K_}</b>${v} · ${B[o.t].nom}`;}
+    else{const K=KINDS[o.kind];let verbe=K.verbe,need="";
+      if(o.kind==="statue"&&!o.self&&(S.inv.fluide||0)>0){verbe="Réveiller";need="<small>Utilise 1 fluide de réveil</small>";}
+      if(o.kind==="vestige")return setPrompt(`<b>${K_}</b>Ramasser · objet ancien`);
+      if(K.outil&&!S.tools[K.outil]&&!S.tools[K.outil+"_fer"])need=`<small>${TOOLNEED[K.outil]}</small>`;
+      else if(K.dark&&!torchOn&&caveFactor(P.x,P.z)>.3)need="<small>Trop sombre : allume ta torche</small>";
+      h=`<b>${K_}</b>${verbe} · ${K.nom}${need}`;if(K.hp>1&&o.hp<K.hp)h+=`<div class="hpbar"><i style="width:${o.hp/K.hp*100}%"></i></div>`;}}
+  setPrompt(h);}
+function setPrompt(h){if($("prompt").innerHTML!==h)$("prompt").innerHTML=h;}
+
+/* Carte */
+let mapBase=null;
+function buildMapBase(){const R=256,c=document.createElement("canvas");c.width=c.height=R;const x=c.getContext("2d"),img=x.createImageData(R,R);
+  for(let py=0;py<R;py++)for(let px=0;px<R;px++){const wx=-HALF+(px+.5)*SIZE/R,wz=-HALF+(py+.5)*SIZE/R,h=groundAt(wx,wz);let col;
+    if(h<-.3)col=[59,111,122];else if(h<.9)col=[203,185,138];else if(h>32)col=[217,221,224];else if(h>16)col=[125,122,114];
+    else if(forest(wx,wz)>.42&&h<20)col=[52,88,46];else col=[111,148,74];
+    if(dCave(wx,wz)<9)col=[70,66,60];
+    const sh=.8+Math.min(.35,Math.max(0,h)/60);const k=(py*R+px)*4;img.data[k]=col[0]*sh;img.data[k+1]=col[1]*sh;img.data[k+2]=col[2]*sh;img.data[k+3]=255;}
+  x.putImageData(img,0,0);mapBase=c;}
+function drawMap(){if(!mapBase)buildMapBase();const cv=$("mapC");const s=Math.max(300,Math.round(cv.clientWidth*Math.min(2,devicePixelRatio)));cv.width=cv.height=s;
+  const x=cv.getContext("2d");x.imageSmoothingEnabled=true;x.drawImage(mapBase,0,0,s,s);const cell=s/FOGN;
+  const fc=document.createElement("canvas");fc.width=fc.height=FOGN;const fcx=fc.getContext("2d"),fd=fcx.createImageData(FOGN,FOGN);
+  for(let k=0;k<fogA.length;k++){fd.data[k*4]=21;fd.data[k*4+1]=18;fd.data[k*4+2]=14;fd.data[k*4+3]=fogA[k]?0:240;}
+  fcx.putImageData(fd,0,0);x.drawImage(fc,0,0,s,s);
+  const w2m=(wx,wz)=>[(wx+HALF)/SIZE*s,(wz+HALF)/SIZE*s];const seen=(wx,wz)=>{const j=Math.floor((wx+HALF)/SIZE*FOGN),i=Math.floor((wz+HALF)/SIZE*FOGN);return fogA[i*FOGN+j];};
+  x.font=`700 ${Math.round(s/42)}px "Atkinson Hyperlegible",sans-serif`;x.textAlign="center";
+  for(const l of LM){if(!seen(l.x,l.z))continue;const[mx,my]=w2m(l.x,l.z);x.fillStyle="rgba(21,18,14,.7)";const tw=x.measureText(l.n).width;x.fillRect(mx-tw/2-4,my-s/40,tw+8,s/30);x.fillStyle="#ede3cf";x.fillText(l.n,mx,my);}
+  x.fillStyle="#f0a63a";for(const b of builds){const[mx,my]=w2m(b.x,b.z);x.fillRect(mx-s/220,my-s/220,s/110,s/110);}
+  x.fillStyle="#86ad5f";for(const n of npcs){const[mx,my]=w2m(n.x,n.z);x.beginPath();x.arc(mx,my,s/170,0,6.3);x.fill();}
+  const[px,py]=w2m(P.x,P.z),fx=-Math.sin(yaw),fy=-Math.cos(yaw),q=s/70;
+  x.fillStyle="#ede3cf";x.strokeStyle="#15120e";x.lineWidth=2;x.beginPath();x.moveTo(px+fx*q*1.4,py+fy*q*1.4);x.lineTo(px-fx*q*.8-fy*q*.8,py-fy*q*.8+fx*q*.8);x.lineTo(px-fx*q*.4,py-fy*q*.4);x.lineTo(px-fx*q*.8+fy*q*.8,py-fy*q*.8-fx*q*.8);x.closePath();x.fill();x.stroke();
+  x.fillStyle="#ede3cf";x.font=`700 ${Math.round(s/30)}px "Big Shoulders Stencil Display",sans-serif`;x.fillText("N",s/2,s/24);
+  $("mapPct").textContent=`${Math.round(fogPct()*100)} % exploré`;}
+function revealFog(){const cj=(P.x+HALF)/SIZE*FOGN,ci=(P.z+HALF)/SIZE*FOGN,r=30/SIZE*FOGN;
+  for(let i=Math.max(0,Math.floor(ci-r));i<=Math.min(FOGN-1,Math.ceil(ci+r));i++)for(let j=Math.max(0,Math.floor(cj-r));j<=Math.min(FOGN-1,Math.ceil(cj+r));j++)
+    if(Math.hypot(i+.5-ci,j+.5-cj)<=r)fogA[i*FOGN+j]=1;}
+
+/* ================= Boucle ================= */
+const DAY=480;const cDay=new THREE.Color(0x9cc7e0),cDawn=new THREE.Color(0xe7a26a),cNight=new THREE.Color(0x0c1124),sky=new THREE.Color();
+let saveT=0,respT=0,hudT=0,slowT=0,wolfT=10,coldWarn=false,t0=performance.now(),elapsed=0;
+function update(dt){
+  S.clock+=dt;S.time+=dt/DAY;if(S.time>=1){S.time-=1;S.day++;}
+  const hrs=S.time*24,e=Math.sin((hrs-6)/12*Math.PI);nightNow=e<.05;
+  // déplacement
+  let mx=0,mz=0;if(keys.KeyW||keys.ArrowUp)mz-=1;if(keys.KeyS||keys.ArrowDown)mz+=1;if(keys.KeyA||keys.ArrowLeft)mx-=1;if(keys.KeyD||keys.ArrowRight)mx+=1;
+  mx+=joy.dx||0;mz+=joy.dy||0;const ml=Math.hypot(mx,mz);
+  const inWater=groundAt(P.x,P.z)<-.3;
+  let sp=(keys.ShiftLeft||keys.ShiftRight)?8.5:5;if(inWater)sp*=.55;
+  if(ml>0){mx/=Math.max(1,ml);mz/=Math.max(1,ml);const s=Math.sin(yaw),c=Math.cos(yaw);P.x+=(mx*c+mz*s)*sp*dt;P.z+=(-mx*s+mz*c)*sp*dt;}
+  for(const c of colliders){if(c.o&&c.o.dead)continue;const dx=P.x-c.x,dz=P.z-c.z;if(Math.abs(dx)>3||Math.abs(dz)>3)continue;const d=Math.hypot(dx,dz),r=c.r+.35;
+    if(d<r&&d>1e-4){P.x=c.x+dx/d*r;P.z=c.z+dz/d*r;}}
+  const lim=HALF-6;P.x=Math.max(-lim,Math.min(lim,P.x));P.z=Math.max(-lim,Math.min(lim,P.z));
+  const g=Math.max(groundAt(P.x,P.z),-.9);P.vy-=18*dt;P.y+=P.vy*dt;if(P.y<=g){P.y=g;P.vy=0;P.ground=true;}
+  elapsed+=ml>0&&P.ground?dt*sp:0;const bob=Math.sin(elapsed*1.6)*.045;
+  camera.position.set(P.x,P.y+1.68+bob,P.z);camera.rotation.set(pitch,yaw,0);
+  // besoins
+  const warm=builds.some(b=>["feu","four","fourneau","forge"].includes(b.t)&&Math.hypot(b.x-P.x,b.z-P.z)<9);
+  let status="";
+  S.faim=Math.max(0,S.faim-dt/5.5);
+  if(S.faim<=0){S.sante-=dt/2;status="Tu meurs de faim !";}
+  else if(nightNow&&!warm&&!S.tools.manteau){S.sante-=dt/7;status="Tu as froid";if(!coldWarn){coldWarn=true;toast("Tu as froid ! Reste près d'un feu, dors dans l'abri ou fabrique un manteau de fourrure.","warn");}}
+  else if(S.faim>55&&S.sante<100)S.sante=Math.min(100,S.sante+dt/3);
+  if(!nightNow)coldWarn=false;
+  if(S.sante<=0){const ab=builds.find(b=>b.t==="abri");P.x=ab?ab.x+2.5:SPAWN.x+2;P.z=ab?ab.z+2.5:SPAWN.z+2;S.sante=60;S.faim=Math.max(S.faim,45);toast("Tu t'es évanoui… Tu te réveilles plus loin.","warn");}
+  // ciel et grotte
+  const cf=caveFactor(P.x,P.z);
+  if(e>.25)sky.copy(cDay);else if(e>-.08)sky.copy(cDawn).lerp(cDay,sm(-.08,.25,e));else sky.copy(cNight).lerp(cDawn,sm(-.3,-.08,e));
+  scene.background=sky;scene.fog.color.copy(sky);
+  hemi.intensity=(.18+.55*sm(-.2,.4,e))*(1-.88*cf);sun.intensity=Math.max(0,e)*.95*(1-cf);
+  const sa=(hrs-6)/12*Math.PI;sun.position.set(P.x+Math.cos(sa)*70,Math.max(8,Math.sin(sa)*80),P.z+30);sun.target.position.set(P.x,P.y,P.z);
+  $("night").style.opacity=nightNow||cf>.5?.9:0;
+  torchLight.intensity=torchOn?1.6:0;
+  // bâtiments animés
+  const tt=performance.now()/1000,pw=power();for(const b of builds){const u=b.g.userData;
+    if(u.f1){const f=1+Math.sin(tt*14+b.x)*.12+Math.sin(tt*23)*.06;u.f1.scale.set(1,f,1);u.f2.scale.set(1,f*1.1,1);u.light.intensity=1.4+Math.sin(tt*19+b.z)*.25;}
+    if(u.blink)u.blink.visible=Math.sin(tt*3)>0;
+    if(u.wheel)u.wheel.rotation.x-=dt*1.1;
+    if(b.t==="lampadaire"){const on=pw&&nightNow;u.light.intensity=on?1.7:0;u.bm.color.setHex(on?0xffe2a0:0x6a6a60);}
+    if(u.sprouts){const p=b.plant?Math.min(1,1-(b.plant-S.clock)/150):0;const ripe=b.plant&&p>=1;u.sm.color.setHex(ripe?0xd8b44a:0x6fa040);u.sprouts.forEach(m=>m.scale.setScalar(b.plant?Math.max(.05,p):.001));}}
+  vestMeshes.forEach((m,i)=>{m.rotation.y=tt*1.5+i;m.position.y=.45+Math.sin(tt*2+i)*.08;});
+  // animaux
+  for(let i=animals.length-1;i>=0;i--){const a=animals[i];const dx=a.x-P.x,dz=a.z-P.z,d=Math.hypot(dx,dz);let spd=0;
+    if(a.type==="lievre"){if(d<8)a.flee=2.5;
+      if(a.flee>0){a.flee-=dt;spd=6.2;a.dir=Math.atan2(dx,dz)+Math.sin(tt*3+i)*.4;}
+      else{a.t-=dt;if(a.t<=0){a.t=2+Math.random()*4;a.moving=Math.random()<.5;a.dir=Math.random()*6.283;}spd=a.moving?1.4:0;}}
+    else{a.cd=Math.max(0,a.cd-dt);const rep=builds.find(b=>(b.t==="feu"||(b.t==="lampadaire"&&pw&&nightNow))&&Math.hypot(b.x-a.x,b.z-a.z)<12);
+      if(!nightNow){a.dir=Math.atan2(dx,dz);spd=6;if(d>55){scene.remove(a.g);animals.splice(i,1);continue;}}
+      else if(rep){a.dir=Math.atan2(a.x-rep.x,a.z-rep.z);spd=4;}
+      else if(torchOn&&d<7.5){a.dir=Math.atan2(-dx,-dz)+Math.PI/2;spd=3;if(d<5)a.dir=Math.atan2(dx,dz);}
+      else{a.dir=Math.atan2(-dx,-dz);spd=d>1.5?5.3:0;
+        if(d<1.9&&a.cd<=0){a.cd=1.2;S.sante-=9;$("hurt").style.opacity=1;setTimeout(()=>$("hurt").style.opacity=0,250);sound(90,.2);}}}
+    if(spd>0){const nx=a.x+Math.sin(a.dir)*spd*dt,nz=a.z+Math.cos(a.dir)*spd*dt;
+      if(groundAt(nx,nz)<.3||Math.abs(nx)>HALF-15||Math.abs(nz)>HALF-15||(a.type==="lievre"&&caveFactor(nx,nz)>0)){a.dir+=Math.PI;a.t=0;}else{a.x=nx;a.z=nz;}}
+    const hop=a.type==="lievre"&&spd>0?Math.abs(Math.sin(tt*12+i))*.25:0;
+    a.g.position.set(a.x,groundAt(a.x,a.z)+hop,a.z);a.g.rotation.y=a.dir;}
+  wolfT-=dt;const nW=animals.filter(a=>a.type==="loup").length;
+  if(nightNow&&cf<.3&&wolfT<=0&&nW<Math.min(5,1+Math.ceil(S.day/2))){wolfT=22;spawnWolf();}
+  // personnes réveillées
+  for(const n of npcs){n.acc+=dt;if(n.acc>=90){n.acc=0;S.npcStock[n.idx]=Math.min(3,(S.npcStock[n.idx]||0)+1);}
+    const sp_=slotPos(n.idx),dx=sp_.x-n.x,dz=sp_.z-n.z,d=Math.hypot(dx,dz);
+    if(d>.6){const v=Math.min(d,2.8*dt);n.x+=dx/d*v;n.z+=dz/d*v;n.g.rotation.y=Math.atan2(dx,dz);n.g.position.y=groundAt(n.x,n.z)+Math.abs(Math.sin(tt*8))*.05;}
+    else{const pd=Math.hypot(P.x-n.x,P.z-n.z);if(pd<8)n.g.rotation.y=Math.atan2(P.x-n.x,P.z-n.z);n.g.position.y=groundAt(n.x,n.z);}
+    n.g.position.x=n.x;n.g.position.z=n.z;}
+  // ciblage, fantôme, outil
+  hitCd=Math.max(0,hitCd-dt);updateGhost();target=buildSel?null:findTarget();
+  if(target&&!target.t&&!target.npc){if(target.animal)showHeld(S.tools.lance?"lance":null);else{const K=KINDS[target.kind];showHeld(K.outil||null);}}
+  if(swingT>0){swingT-=dt;const k=Math.sin((1-swingT/.32)*Math.PI);held.rotation.set(-k*1.1,0,k*.3);}else held.rotation.set(0,0,0);
+  for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.t-=dt;p.v.y-=12*dt;p.m.position.addScaledVector(p.v,dt);p.m.rotation.x+=dt*8;if(p.t<=0){scene.remove(p.m);parts.splice(i,1);}}
+  respT+=dt;if(respT>2){respT=0;for(const o of objs){if(o.dead){const r=S.dead[o.id];if(r>0&&S.clock>=r){o.dead=false;o.hp=KINDS[o.kind].hp||1;delete S.dead[o.id];setVis(o,true);}}}}
+  if(sciT>0){sciT-=dt;if(sciT<=0)$("sci").hidden=true;}
+  saveT+=dt;if(saveT>8){saveT=0;save();}
+  slowT+=dt;if(slowT>.5){slowT=0;revealFog();checkDefis();}
+  hudT+=dt;if(hudT>.1){hudT=0;
+    const hh=Math.floor(hrs),mm=Math.floor((hrs-hh)*6)*10;$("clock").textContent=`Jour ${S.day} · ${String(hh).padStart(2,"0")} h ${String(mm).padStart(2,"0")}`;
+    $("faimBar").style.width=S.faim+"%";$("santeBar").style.width=Math.max(0,S.sante)+"%";$("status").textContent=status;renderCompass();renderPrompt();renderBar();checkObj();}
+}
+function loop(now){const dt=Math.min(.05,(now-t0)/1000);t0=now;if(playing&&S.started)update(dt);renderer.render(scene,camera);requestAnimationFrame(loop);}
+
+/* ================= Démarrage ================= */
+function applyState(){
+  for(const[id,r]of Object.entries(S.dead)){const o=objs[+id];if(!o)continue;o.dead=true;setVis(o,false,KINDS[o.kind].keep);}
+  S.builds.forEach(placeBuild);P.x=S.pos.x;P.z=S.pos.z;P.y=groundAt(P.x,P.z);yaw=S.yaw;
+  if(S.fog&&S.fog.length===fogA.length)for(let i=0;i<fogA.length;i++)fogA[i]=S.fog.charCodeAt(i)===49?1:0;
+  for(const[id,idx]of Object.entries(S.revived)){const o=objs[+id];if(o&&o.kind==="statue"){o.dead=true;o.mesh.visible=false;}const sp_=slotPos(idx);spawnNPC(idx,sp_.x,sp_.z);}
+  for(let i=0;i<24;i++)spawnHare();
+  camera.position.set(P.x,P.y+1.68,P.z);camera.rotation.set(0,yaw,0);S.obj=0;checkObj(true);DEFIS.forEach(([t,d,f,goal])=>{if(f()>=goal)S.defis[t]=1;});renderBar();
+}
+function beginPlay(){$("intro").hidden=true;S.started=true;revealFog();save();playing=true;requestLock();
+  setTimeout(()=>{if(S.obj===0)toast("Regarde le sol autour de toi : branches, cailloux et herbes hautes.");},1200);}
+
+S=load();
+if(S&&S.started){applyState();$("amber").hidden=true;$("menu").hidden=false;
+  $("menuInfo").textContent=`Jour ${S.day} · objectif ${Math.min(S.obj+1,OBJ.length)} sur ${OBJ.length} · ${S.builds.length} construction${S.builds.length>1?"s":""} · ${Object.keys(S.revived).length} personne(s) réveillée(s).`;}
+else{S=fresh();applyState();}
+$("cont").onclick=beginPlay;$("restart").onclick=()=>{try{localStorage.removeItem(KEY);}catch(e){}location.reload();};
+$("start").onclick=beginPlay;
+requestAnimationFrame(loop);
+
+/* Intro : briser l'ambre */
+(function(){if(S.started)return;const cv=$("crackC"),cx=cv.getContext("2d");let cracks=[],hits=0,done=false;
+  function size(){cv.width=innerWidth*devicePixelRatio;cv.height=innerHeight*devicePixelRatio;draw();}
+  function draw(){const w=cv.width,h=cv.height;const gr=cx.createRadialGradient(w/2,h*.45,10,w/2,h/2,Math.max(w,h)*.7);
+    gr.addColorStop(0,"#ffcf73");gr.addColorStop(.5,"#e39a2c");gr.addColorStop(1,"#6b3608");cx.fillStyle=gr;cx.fillRect(0,0,w,h);
+    cx.globalAlpha=.18;for(let i=0;i<60;i++){cx.fillStyle=i%2?"#fff3c4":"#7a3e06";cx.beginPath();cx.arc(hash(i,1)*w,hash(i,2)*h,hash(i,3)*6*devicePixelRatio,0,6.3);cx.fill();}cx.globalAlpha=1;
+    cx.lineCap="round";for(const c of cracks){cx.strokeStyle="rgba(60,25,0,.55)";cx.lineWidth=5*devicePixelRatio;cx.beginPath();c.forEach((p,i)=>i?cx.lineTo(p[0]*w,p[1]*h):cx.moveTo(p[0]*w,p[1]*h));cx.stroke();
+      cx.strokeStyle="rgba(255,248,215,.95)";cx.lineWidth=1.6*devicePixelRatio;cx.stroke();}}
+  function hit(){if(done)return;hits++;sound(140+hits*30,.18);
+    for(let k=0;k<2;k++){const start=cracks.length&&Math.random()<.6?cracks[Math.floor(Math.random()*cracks.length)].slice(-1)[0]:[.5+(Math.random()-.5)*.1,.45+(Math.random()-.5)*.1];
+      const c=[start.slice()];let a=Math.random()*6.28;for(let i=0;i<7;i++){a+=(Math.random()-.5)*1.1;const l=.03+Math.random()*.05;const p=c[c.length-1];c.push([p[0]+Math.cos(a)*l,p[1]+Math.sin(a)*l*innerWidth/innerHeight]);}cracks.push(c);}
+    draw();const am=$("amber");am.style.transform=`translate(${(Math.random()-.5)*14}px,${(Math.random()-.5)*14}px)`;setTimeout(()=>{if(!done)am.style.transform="";},70);
+    if(hits>=11){done=true;am.classList.add("shatter");sound(90,.6);setTimeout(()=>{am.hidden=true;$("prologue").hidden=false;$("start").focus();},900);}}
+  addEventListener("keydown",e=>{if(e.code==="Space"&&!$("amber").hidden){e.preventDefault();hit();}});
+  $("amber").addEventListener("pointerdown",hit);addEventListener("resize",size);size();})();
+</script>
